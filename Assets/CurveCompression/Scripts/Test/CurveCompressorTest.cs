@@ -33,6 +33,7 @@ namespace CurveCompression
         [SerializeField] private float lineWidth = 0.02f;
         [SerializeField] private float curveHeight = 2.0f;
         [SerializeField] private float timeScale = 1.0f;
+        [SerializeField] private float compressedDataYOffset = 0f; // 圧縮データのYオフセット
         
         [Header("AnimationClip保存設定")]
         [SerializeField] private bool saveAsAnimationClip = true;
@@ -264,8 +265,8 @@ namespace CurveCompression
             // 元データの可視化
             DrawCurve(originalLineRenderer, originalData, 0f);
             
-            // 圧縮データの可視化（少し上にオフセット）
-            DrawCurve(compressedLineRenderer, compressedData, 0.1f);
+            // 圧縮データの可視化（設定可能なオフセット）
+            DrawCurve(compressedLineRenderer, compressedData, compressedDataYOffset);
         }
         
         private void DrawCurve(LineRenderer lineRenderer, TimeValuePair[] data, float yOffset)

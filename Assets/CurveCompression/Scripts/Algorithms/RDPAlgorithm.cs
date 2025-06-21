@@ -1,7 +1,8 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using CurveCompression.DataStructures;
 
-namespace CurveCompression
+namespace CurveCompression.Algorithms
 {
     // =============================================================================
     // RDPAlgorithm.cs - Ramer-Douglas-Peucker アルゴリズム実装

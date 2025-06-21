@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
+using CurveCompression.DataStructures;
 
-namespace CurveCompression
+namespace CurveCompression.Algorithms
 {
     /// <summary>
     /// Bezier曲線による適応的圧縮アルゴリズム

@@ -1,19 +1,24 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
+using CurveCompression.DataStructures;
+using CurveCompression.Algorithms;
+using CurveCompression.Core;
 #if UNITY_EDITOR
 using UnityEditor;
 using System.IO;
 #endif
 
-namespace CurveCompression
+namespace CurveCompression.Test
 {
     // =============================================================================
     // CurveCompressor.cs - メイン処理クラス
     // =============================================================================
     
 	/// <summary>
-    /// カーブ圧縮のメインクラス
+    /// カーブ圧縮のテストクラス（レガシー）
+    /// 注: 新しい実装では CurveCompressionDemo を使用してください
     /// </summary>
+    [System.Obsolete("Use CurveCompressionDemo instead for new implementations")]
     public class CurveCompressor : MonoBehaviour
     {
         [Header("圧縮パラメータ")]

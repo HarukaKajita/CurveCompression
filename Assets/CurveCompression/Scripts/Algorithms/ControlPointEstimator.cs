@@ -2,8 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using CurveCompression.DataStructures;
 
-namespace CurveCompression
+namespace CurveCompression.Algorithms
 {
     /// <summary>
     /// コントロールポイント数推定アルゴリズム

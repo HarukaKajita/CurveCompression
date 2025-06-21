@@ -458,18 +458,42 @@ MonoBehaviour:
   compressionParams:
     tolerance: 0.01
     importanceThreshold: 1
-    maxSplineSegments: 10
-    adaptiveWeight: 0.5
-    enableHybrid: 1
-    dataType: 0
+    compressionMethod: 4
+    dataType: 3
     importanceWeights:
-      curvature: 0.4
-      changeRate: 0.25
-      localVariance: 0.2
-      extremeValue: 0.15
+      curvature: 0.752
+      changeRate: 0.32
+      localVariance: 0.064
+      extremeValue: 0.24
   testDataPoints: 1000
   testDuration: 10
   generateTestData: 1
+  enableVisualization: 1
+  useAdvancedCompression: 1
+  compareAllMethods: 0
+  originalDataColor: {r: 0, g: 0, b: 1, a: 1}
+  compressedDataColor: {r: 1, g: 0, b: 0, a: 1}
+  errorVisualizationColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  lineWidth: 0.02
+  curveHeight: 2
+  timeScale: 1
+  compressedDataYOffset: 0
+  saveAsAnimationClip: 1
+  animationClipSavePath: Assets/CurveCompression/GeneratedClips/
+  animationClipNamePrefix: CurveCompression_
+  targetPropertyPath: transform.position.y
+  showControlPoints: 1
+  controlPointColor: {r: 0, g: 1, b: 0, a: 1}
+  controlPointSize: 0.1
+  showControlLines: 1
+  controlLineColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  autoUpdateOnParameterChange: 0
+  updateCheckInterval: 0.5
+  useFixedControlPoints: 1
+  fixedControlPointCount: 10
+  showEstimationResults: 1
+  selectedEstimationMethod: TotalVariation
+  estimationResults: []
 --- !u!4 &1914965035
 Transform:
   m_ObjectHideFlags: 0

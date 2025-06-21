@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
+using CurveCompression.DataStructures;
 
-namespace CurveCompression
+namespace CurveCompression.Core
 {
     // =============================================================================
     // HybridCompressor.cs - ハイブリッドアプローチ実装

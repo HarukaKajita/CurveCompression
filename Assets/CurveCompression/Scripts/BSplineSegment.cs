@@ -1,10 +1,13 @@
 ﻿using UnityEngine;
+using CurveCompression.DataStructures;
 
-namespace CurveCompression
+namespace CurveCompression.Legacy
 {
 	/// <summary>
-	/// B-スプラインセグメント
+	/// B-スプラインセグメント（レガシー実装）
+	/// 注: 新しい実装では CurveCompression.DataStructures.CurveSegment を使用してください
 	/// </summary>
+	[System.Obsolete("Use CurveCompression.DataStructures.CurveSegment instead")]
 	public class BSplineSegment
 	{
 		private Vector2[] controlPoints;

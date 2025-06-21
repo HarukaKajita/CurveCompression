@@ -327,7 +327,7 @@ namespace CurveCompression
             if (data.Length <= 1) return 0;
 
             // ヒストグラムを作成
-            int bins = Mathf.Min(20, data.Length / 5);
+            int bins = Mathf.Max(1, Mathf.Min(20, data.Length / 5));
             float min = data.Min(p => p.value);
             float max = data.Max(p => p.value);
             float range = max - min;

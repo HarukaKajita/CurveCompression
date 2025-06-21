@@ -57,20 +57,10 @@ namespace CurveCompression
             
             TimeValuePair[] compressedData;
             
-            if (compressionParams.enableHybrid)
-            {
-                compressedData = HybridCompressor.Compress(originalData, compressionParams);
-            }
-            else if (compressionParams.adaptiveWeight < 0.5f)
-            {
-                var weights = HybridCompressor.GetOptimalWeights(compressionParams.dataType, compressionParams.importanceWeights);
-                compressedData = RDPAlgorithm.Simplify(originalData, compressionParams.tolerance, 
-                    compressionParams.importanceThreshold, weights);
-            }
-            else
-            {
-                compressedData = BSplineAlgorithm.ApproximateWithBSpline(originalData, compressionParams.tolerance);
-            }
+            // 従来の圧縮手法（RDPベース）
+            var weights = HybridCompressor.GetOptimalWeights(compressionParams.dataType, compressionParams.importanceWeights);
+            compressedData = RDPAlgorithm.Simplify(originalData, compressionParams.tolerance, 
+                compressionParams.importanceThreshold, weights);
             
             return new CompressionResult(originalData, compressedData);
         }

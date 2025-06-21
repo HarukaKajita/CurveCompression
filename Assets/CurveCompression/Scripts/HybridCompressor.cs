@@ -14,7 +14,7 @@ namespace CurveCompression
     public static class HybridCompressor
     {
         /// <summary>
-        /// ハイブリッド圧縮を実行
+        /// ハイブリッド圧縮を実行（従来互換性のため残存）
         /// </summary>
         public static TimeValuePair[] Compress(TimeValuePair[] points, CompressionParams parameters)
         {
@@ -31,8 +31,11 @@ namespace CurveCompression
             var splineResult = BSplineAlgorithm.ApproximateWithBSpline(points, 
                 parameters.tolerance);
             
-            // 3. 適応的重み付けで最適解を選択
-            return SelectOptimalResult(points, rdpResult, splineResult, parameters);
+            // 3. 品質に基づく選択（固定ロジック）
+            float rdpScore = EvaluateQuality(points, rdpResult);
+            float splineScore = EvaluateQuality(points, splineResult);
+            
+            return rdpScore <= splineScore ? rdpResult : splineResult;
         }
         
         /// <summary>
@@ -82,29 +85,6 @@ namespace CurveCompression
             };
         }
         
-        private static TimeValuePair[] SelectOptimalResult(TimeValuePair[] original, 
-            TimeValuePair[] rdpResult, TimeValuePair[] splineResult, CompressionParams parameters)
-        {
-            if (!parameters.enableHybrid)
-            {
-                return parameters.adaptiveWeight < 0.5f ? rdpResult : splineResult;
-            }
-            
-            // 各結果の品質評価
-            float rdpScore = EvaluateQuality(original, rdpResult);
-            float splineScore = EvaluateQuality(original, splineResult);
-            
-            // 適応的選択またはブレンド
-            if (parameters.adaptiveWeight == 0.0f) return rdpResult;
-            if (parameters.adaptiveWeight == 1.0f) return splineResult;
-            
-            // 品質に基づく動的選択
-            float qualityRatio = rdpScore / (rdpScore + splineScore);
-            float finalWeight = Mathf.Lerp(qualityRatio, parameters.adaptiveWeight, 0.5f);
-            
-            return finalWeight < 0.5f ? rdpResult : splineResult;
-        }
-        
         private static float EvaluateQuality(TimeValuePair[] original, TimeValuePair[] compressed)
         {
             if (compressed.Length == 0) return float.MaxValue;
@@ -116,43 +96,6 @@ namespace CurveCompression
             {
                 float interpolatedValue = InterpolateValue(compressed, original[i].time);
                 totalError += Mathf.Abs(original[i].value - interpolatedValue);
-            }
-            
-            float avgError = totalError / original.Length;
-            return avgError + compressionPenalty * 0.1f; // 圧縮率にペナルティを追加
-        }
-        
-        private static CompressedCurveData SelectOptimalCurveResult(TimeValuePair[] original, 
-            CompressedCurveData bsplineResult, CompressedCurveData bezierResult, CompressionParams parameters)
-        {
-            if (!parameters.enableHybrid)
-            {
-                return parameters.adaptiveWeight < 0.5f ? bsplineResult : bezierResult;
-            }
-            
-            // 各結果の品質評価
-            float bsplineScore = EvaluateCurveQuality(original, bsplineResult);
-            float bezierScore = EvaluateCurveQuality(original, bezierResult);
-            
-            // 適応的選択
-            if (parameters.adaptiveWeight == 0.0f) return bsplineResult;
-            if (parameters.adaptiveWeight == 1.0f) return bezierResult;
-            
-            // 品質に基づく動的選択
-            return bsplineScore <= bezierScore ? bsplineResult : bezierResult;
-        }
-        
-        private static float EvaluateCurveQuality(TimeValuePair[] original, CompressedCurveData compressed)
-        {
-            if (compressed.segments == null || compressed.segments.Length == 0) return float.MaxValue;
-            
-            float totalError = 0f;
-            float compressionPenalty = (float)compressed.segments.Length / original.Length;
-            
-            for (int i = 0; i < original.Length; i++)
-            {
-                float curveValue = compressed.Evaluate(original[i].time);
-                totalError += Mathf.Abs(original[i].value - curveValue);
             }
             
             float avgError = totalError / original.Length;

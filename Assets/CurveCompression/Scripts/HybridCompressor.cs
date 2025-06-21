@@ -35,6 +35,33 @@ namespace CurveCompression
             return SelectOptimalResult(points, rdpResult, splineResult, parameters);
         }
         
+        /// <summary>
+        /// ハイブリッド圧縮を実行（新しいデータ構造を使用）
+        /// </summary>
+        public static CompressedCurveData CompressAdvanced(TimeValuePair[] points, CompressionParams parameters)
+        {
+            if (points.Length <= 2)
+            {
+                var linearSegment = CurveSegment.CreateLinear(
+                    points[0].time, points[0].value,
+                    points[^1].time, points[^1].value
+                );
+                return new CompressedCurveData(new[] { linearSegment });
+            }
+            
+            // データタイプに基づく重み設定の自動調整
+            var weights = GetOptimalWeights(parameters.dataType, parameters.importanceWeights);
+            
+            // 1. B-スプライン近似
+            var bsplineResult = BSplineAlgorithm.Compress(points, parameters.tolerance, parameters.maxSplineSegments);
+            
+            // 2. Bezier曲線近似
+            var bezierResult = BezierAlgorithm.Compress(points, parameters.tolerance, parameters.maxSplineSegments);
+            
+            // 3. 品質評価に基づく選択
+            return SelectOptimalCurveResult(points, bsplineResult, bezierResult, parameters);
+        }
+        
         public static ImportanceWeights GetOptimalWeights(CompressionDataType dataType, ImportanceWeights userWeights)
         {
             return dataType switch
@@ -80,6 +107,43 @@ namespace CurveCompression
             {
                 float interpolatedValue = InterpolateValue(compressed, original[i].time);
                 totalError += Mathf.Abs(original[i].value - interpolatedValue);
+            }
+            
+            float avgError = totalError / original.Length;
+            return avgError + compressionPenalty * 0.1f; // 圧縮率にペナルティを追加
+        }
+        
+        private static CompressedCurveData SelectOptimalCurveResult(TimeValuePair[] original, 
+            CompressedCurveData bsplineResult, CompressedCurveData bezierResult, CompressionParams parameters)
+        {
+            if (!parameters.enableHybrid)
+            {
+                return parameters.adaptiveWeight < 0.5f ? bsplineResult : bezierResult;
+            }
+            
+            // 各結果の品質評価
+            float bsplineScore = EvaluateCurveQuality(original, bsplineResult);
+            float bezierScore = EvaluateCurveQuality(original, bezierResult);
+            
+            // 適応的選択
+            if (parameters.adaptiveWeight == 0.0f) return bsplineResult;
+            if (parameters.adaptiveWeight == 1.0f) return bezierResult;
+            
+            // 品質に基づく動的選択
+            return bsplineScore <= bezierScore ? bsplineResult : bezierResult;
+        }
+        
+        private static float EvaluateCurveQuality(TimeValuePair[] original, CompressedCurveData compressed)
+        {
+            if (compressed.segments == null || compressed.segments.Length == 0) return float.MaxValue;
+            
+            float totalError = 0f;
+            float compressionPenalty = (float)compressed.segments.Length / original.Length;
+            
+            for (int i = 0; i < original.Length; i++)
+            {
+                float curveValue = compressed.Evaluate(original[i].time);
+                totalError += Mathf.Abs(original[i].value - curveValue);
             }
             
             float avgError = totalError / original.Length;

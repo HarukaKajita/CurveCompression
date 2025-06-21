@@ -68,7 +68,7 @@ namespace CurveCompression
             }
             else
             {
-                compressedData = BSplineAlgorithm.ApproximateWithBSpline(originalData, compressionParams.tolerance, compressionParams.maxSplineSegments);
+                compressedData = BSplineAlgorithm.ApproximateWithBSpline(originalData, compressionParams.tolerance);
             }
             
             return new CompressionResult(originalData, compressedData);
@@ -93,11 +93,11 @@ namespace CurveCompression
             }
             else if (compressionParams.adaptiveWeight < 0.5f)
             {
-                compressedCurve = BSplineAlgorithm.Compress(originalData, compressionParams.tolerance, compressionParams.maxSplineSegments);
+                compressedCurve = BSplineAlgorithm.Compress(originalData, compressionParams.tolerance);
             }
             else
             {
-                compressedCurve = BezierAlgorithm.Compress(originalData, compressionParams.tolerance, compressionParams.maxSplineSegments);
+                compressedCurve = BezierAlgorithm.Compress(originalData, compressionParams.tolerance);
             }
             
             return new CompressionResult(originalData, compressedCurve);
@@ -163,7 +163,7 @@ namespace CurveCompression
         private void SetupLineRenderer(LineRenderer lineRenderer, Color color)
         {
             lineRenderer.material = new Material(Shader.Find("Sprites/Default"));
-            lineRenderer.color = color;
+            lineRenderer.startColor = color;
             lineRenderer.startWidth = lineWidth;
             lineRenderer.endWidth = lineWidth;
             lineRenderer.useWorldSpace = true;

@@ -11,12 +11,12 @@ namespace CurveCompression
         /// <summary>
         /// 適応的B-スプライン近似
         /// </summary>
-        public static TimeValuePair[] ApproximateWithBSpline(TimeValuePair[] points, float tolerance, int maxSegments)
+        public static TimeValuePair[] ApproximateWithBSpline(TimeValuePair[] points, float tolerance)
         {
             if (points.Length <= 2) return points;
             
             var segments = new List<BSplineSegment>();
-            AdaptiveSegmentation(points, 0, points.Length - 1, tolerance, maxSegments, segments);
+            AdaptiveSegmentation(points, 0, points.Length - 1, tolerance, segments);
             
             return ConvertSegmentsToPoints(segments, points[0].time, points[^1].time);
         }
@@ -24,7 +24,7 @@ namespace CurveCompression
         /// <summary>
         /// 適応的B-スプライン近似（新しいデータ構造を使用）
         /// </summary>
-        public static CompressedCurveData Compress(TimeValuePair[] points, float tolerance, int maxSegments)
+        public static CompressedCurveData Compress(TimeValuePair[] points, float tolerance)
         {
             if (points.Length <= 2)
             {
@@ -36,17 +36,17 @@ namespace CurveCompression
             }
             
             var segments = new List<CurveSegment>();
-            AdaptiveSegmentationNew(points, 0, points.Length - 1, tolerance, maxSegments, segments);
+            AdaptiveSegmentationNew(points, 0, points.Length - 1, tolerance, segments);
             
             return new CompressedCurveData(segments.ToArray());
         }
         
         private static void AdaptiveSegmentation(TimeValuePair[] points, int start, int end, 
-            float tolerance, int maxSegments, List<BSplineSegment> segments)
+            float tolerance, List<BSplineSegment> segments)
         {
-            if (segments.Count >= maxSegments || end - start <= 3)
+            if (end - start <= 3)
             {
-                // 線形補間で近似
+                // 最小セグメントサイズに達したら線形補間
                 segments.Add(new BSplineSegment(points[start], points[end]));
                 return;
             }
@@ -63,8 +63,8 @@ namespace CurveCompression
             {
                 // セグメントを分割
                 int mid = (start + end) / 2;
-                AdaptiveSegmentation(points, start, mid, tolerance, maxSegments, segments);
-                AdaptiveSegmentation(points, mid, end, tolerance, maxSegments, segments);
+                AdaptiveSegmentation(points, start, mid, tolerance, segments);
+                AdaptiveSegmentation(points, mid, end, tolerance, segments);
             }
         }
         
@@ -106,11 +106,11 @@ namespace CurveCompression
         }
         
         private static void AdaptiveSegmentationNew(TimeValuePair[] points, int start, int end, 
-            float tolerance, int maxSegments, List<CurveSegment> segments)
+            float tolerance, List<CurveSegment> segments)
         {
-            if (segments.Count >= maxSegments || end - start <= 3)
+            if (end - start <= 3)
             {
-                // 線形補間で近似
+                // 最小セグメントサイズに達したら線形補間
                 segments.Add(CurveSegment.CreateLinear(
                     points[start].time, points[start].value,
                     points[end].time, points[end].value
@@ -130,8 +130,8 @@ namespace CurveCompression
             {
                 // セグメントを分割
                 int mid = (start + end) / 2;
-                AdaptiveSegmentationNew(points, start, mid, tolerance, maxSegments, segments);
-                AdaptiveSegmentationNew(points, mid, end, tolerance, maxSegments, segments);
+                AdaptiveSegmentationNew(points, start, mid, tolerance, segments);
+                AdaptiveSegmentationNew(points, mid, end, tolerance, segments);
             }
         }
         

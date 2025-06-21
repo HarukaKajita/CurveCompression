@@ -46,8 +46,6 @@ namespace CurveCompression
         [Range(0.1f, 10.0f)]
         public float importanceThreshold = 1.0f; // 重要度閾値
         
-        [Range(2, 20)]
-        public int maxSplineSegments = 10;       // B-スプライン最大セグメント数
         
         [Range(0.0f, 1.0f)]
         public float adaptiveWeight = 0.5f;      // 適応的重み（0=RDP重視, 1=スプライン重視）

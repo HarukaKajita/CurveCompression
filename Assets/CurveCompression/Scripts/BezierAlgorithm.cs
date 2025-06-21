@@ -12,7 +12,7 @@ namespace CurveCompression
         /// <summary>
         /// 適応的Bezier曲線近似
         /// </summary>
-        public static CompressedCurveData Compress(TimeValuePair[] points, float tolerance, int maxSegments)
+        public static CompressedCurveData Compress(TimeValuePair[] points, float tolerance)
         {
             if (points.Length <= 2)
             {
@@ -24,7 +24,7 @@ namespace CurveCompression
             }
             
             var segments = new List<CurveSegment>();
-            AdaptiveBezierSegmentation(points, 0, points.Length - 1, tolerance, maxSegments, segments);
+            AdaptiveBezierSegmentation(points, 0, points.Length - 1, tolerance, segments);
             
             return new CompressedCurveData(segments.ToArray());
         }
@@ -144,11 +144,11 @@ namespace CurveCompression
         }
         
         private static void AdaptiveBezierSegmentation(TimeValuePair[] points, int start, int end, 
-            float tolerance, int maxSegments, List<CurveSegment> segments)
+            float tolerance, List<CurveSegment> segments)
         {
-            if (segments.Count >= maxSegments || end - start <= 1)
+            if (end - start <= 1)
             {
-                // 線形補間で近似
+                // 最小セグメントサイズに達したら線形補間
                 segments.Add(CurveSegment.CreateLinear(
                     points[start].time, points[start].value,
                     points[end].time, points[end].value
@@ -168,8 +168,8 @@ namespace CurveCompression
             {
                 // セグメントを分割
                 int mid = (start + end) / 2;
-                AdaptiveBezierSegmentation(points, start, mid, tolerance, maxSegments, segments);
-                AdaptiveBezierSegmentation(points, mid, end, tolerance, maxSegments, segments);
+                AdaptiveBezierSegmentation(points, start, mid, tolerance, segments);
+                AdaptiveBezierSegmentation(points, mid, end, tolerance, segments);
             }
         }
         

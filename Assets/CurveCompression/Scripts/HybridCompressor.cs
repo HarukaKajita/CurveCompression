@@ -29,7 +29,7 @@ namespace CurveCompression
             
             // 2. B-スプラインで滑らかな近似
             var splineResult = BSplineAlgorithm.ApproximateWithBSpline(points, 
-                parameters.tolerance, parameters.maxSplineSegments);
+                parameters.tolerance);
             
             // 3. 適応的重み付けで最適解を選択
             return SelectOptimalResult(points, rdpResult, splineResult, parameters);
@@ -53,10 +53,10 @@ namespace CurveCompression
             var weights = GetOptimalWeights(parameters.dataType, parameters.importanceWeights);
             
             // 1. B-スプライン近似
-            var bsplineResult = BSplineAlgorithm.Compress(points, parameters.tolerance, parameters.maxSplineSegments);
+            var bsplineResult = BSplineAlgorithm.Compress(points, parameters.tolerance);
             
             // 2. Bezier曲線近似
-            var bezierResult = BezierAlgorithm.Compress(points, parameters.tolerance, parameters.maxSplineSegments);
+            var bezierResult = BezierAlgorithm.Compress(points, parameters.tolerance);
             
             // 3. 品質評価に基づく選択
             return SelectOptimalCurveResult(points, bsplineResult, bezierResult, parameters);

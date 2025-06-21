@@ -40,9 +40,24 @@ namespace CurveCompression
         [SerializeField] private string animationClipNamePrefix = "CurveCompression_";
         [SerializeField] private string targetPropertyPath = "transform.position.y"; // アニメーション対象プロパティ
         
+        [Header("Gizmo設定")]
+        [SerializeField] private bool showControlPoints = true;
+        [SerializeField] private Color controlPointColor = Color.green;
+        [SerializeField] private float controlPointSize = 0.1f;
+        [SerializeField] private bool showControlLines = true;
+        [SerializeField] private Color controlLineColor = Color.gray;
+        
+        [Header("実行時更新設定")]
+        [SerializeField] private bool autoUpdateOnParameterChange = true;
+        [SerializeField] private float updateCheckInterval = 0.5f; // 秒
+        
         private LineRenderer originalLineRenderer;
         private LineRenderer compressedLineRenderer;
         private LineRenderer errorLineRenderer;
+        private TimeValuePair[] currentTestData;
+        private CompressionResult currentResult;
+        private CompressionParams lastParams;
+        private float lastUpdateTime;
         
         /// <summary>
         /// データを圧縮
@@ -114,7 +129,25 @@ namespace CurveCompression
             
             if (generateTestData)
             {
+                currentTestData = GenerateTestData();
                 TestCompression();
+                lastParams = compressionParams.Clone();
+                lastUpdateTime = Time.time;
+            }
+        }
+        
+        void Update()
+        {
+            if (autoUpdateOnParameterChange && currentTestData != null && 
+                Time.time - lastUpdateTime > updateCheckInterval)
+            {
+                if (!compressionParams.Equals(lastParams))
+                {
+                    Debug.Log("パラメータ変更を検出、圧縮を再実行中...");
+                    TestCompression();
+                    lastParams = compressionParams.Clone();
+                }
+                lastUpdateTime = Time.time;
             }
         }
         
@@ -151,11 +184,14 @@ namespace CurveCompression
         
         private void TestCompression()
         {
-            var testData = GenerateTestData();
+            if (currentTestData == null)
+            {
+                currentTestData = GenerateTestData();
+            }
             
             if (compareAllMethods)
             {
-                CompareAllCompressionMethods(testData);
+                CompareAllCompressionMethods(currentTestData);
                 return;
             }
             
@@ -163,14 +199,16 @@ namespace CurveCompression
             
             if (useAdvancedCompression)
             {
-                result = CompressDataAdvanced(testData);
+                result = CompressDataAdvanced(currentTestData);
                 Debug.Log($"高度な圧縮（{compressionParams.compressionMethod}）を使用");
             }
             else
             {
-                result = CompressData(testData);
+                result = CompressData(currentTestData);
                 Debug.Log("従来の圧縮（線形補間ベース）を使用");
             }
+            
+            currentResult = result;
             
             if (result != null)
             {
@@ -183,13 +221,13 @@ namespace CurveCompression
                 
                 if (enableVisualization && originalLineRenderer != null && compressedLineRenderer != null)
                 {
-                    VisualizeData(testData, result.compressedData);
-                    VisualizeError(testData, result.compressedData);
+                    VisualizeData(currentTestData, result.compressedData);
+                    VisualizeError(currentTestData, result.compressedData);
                 }
                 
                 if (saveAsAnimationClip)
                 {
-                    SaveAsAnimationClips(testData, result);
+                    SaveAsAnimationClips(currentTestData, result);
                 }
             }
         }
@@ -321,6 +359,133 @@ namespace CurveCompression
             return curve;
         }
         
+        void OnDrawGizmos()
+        {
+            if (!showControlPoints || currentResult?.compressedCurve?.segments == null)
+                return;
+                
+            DrawControlPointGizmos();
+        }
+        
+        private void DrawControlPointGizmos()
+        {
+            Gizmos.color = controlPointColor;
+            
+            foreach (var segment in currentResult.compressedCurve.segments)
+            {
+                switch (segment.curveType)
+                {
+                    case CurveType.BSpline:
+                        DrawBSplineControlPoints(segment);
+                        break;
+                        
+                    case CurveType.Bezier:
+                        DrawBezierControlPoints(segment);
+                        break;
+                        
+                    case CurveType.Linear:
+                        DrawLinearControlPoints(segment);
+                        break;
+                }
+            }
+        }
+        
+        private void DrawBSplineControlPoints(CurveSegment segment)
+        {
+            if (segment.bsplineControlPoints == null) return;
+            
+            // コントロールポイントを描画
+            for (int i = 0; i < segment.bsplineControlPoints.Length; i++)
+            {
+                var point = segment.bsplineControlPoints[i];
+                Vector3 worldPos = new Vector3(
+                    point.x * timeScale,
+                    point.y * curveHeight,
+                    0
+                );
+                
+                Gizmos.DrawSphere(worldPos, controlPointSize);
+                
+                // コントロールラインを描画
+                if (showControlLines && i < segment.bsplineControlPoints.Length - 1)
+                {
+                    var nextPoint = segment.bsplineControlPoints[i + 1];
+                    Vector3 nextWorldPos = new Vector3(
+                        nextPoint.x * timeScale,
+                        nextPoint.y * curveHeight,
+                        0
+                    );
+                    
+                    Gizmos.color = controlLineColor;
+                    Gizmos.DrawLine(worldPos, nextWorldPos);
+                    Gizmos.color = controlPointColor;
+                }
+            }
+        }
+        
+        private void DrawBezierControlPoints(CurveSegment segment)
+        {
+            // 始点と終点
+            Vector3 startPos = new Vector3(
+                segment.startTime * timeScale,
+                segment.startValue * curveHeight,
+                0
+            );
+            Vector3 endPos = new Vector3(
+                segment.endTime * timeScale,
+                segment.endValue * curveHeight,
+                0
+            );
+            
+            Gizmos.DrawSphere(startPos, controlPointSize);
+            Gizmos.DrawSphere(endPos, controlPointSize);
+            
+            if (showControlLines)
+            {
+                // タンジェントハンドルを描画
+                float dt = segment.endTime - segment.startTime;
+                float handleLength = dt * 0.3f; // ハンドルの長さを調整
+                
+                Vector3 inHandle = startPos + new Vector3(
+                    handleLength * timeScale,
+                    segment.inTangent * handleLength * curveHeight,
+                    0
+                );
+                Vector3 outHandle = endPos - new Vector3(
+                    handleLength * timeScale,
+                    segment.outTangent * handleLength * curveHeight,
+                    0
+                );
+                
+                Gizmos.color = controlLineColor;
+                Gizmos.DrawLine(startPos, inHandle);
+                Gizmos.DrawLine(endPos, outHandle);
+                
+                // ハンドルポイント
+                Gizmos.color = controlPointColor;
+                Gizmos.DrawWireSphere(inHandle, controlPointSize * 0.7f);
+                Gizmos.DrawWireSphere(outHandle, controlPointSize * 0.7f);
+            }
+        }
+        
+        private void DrawLinearControlPoints(CurveSegment segment)
+        {
+            // 始点と終点のみ
+            Vector3 startPos = new Vector3(
+                segment.startTime * timeScale,
+                segment.startValue * curveHeight,
+                0
+            );
+            Vector3 endPos = new Vector3(
+                segment.endTime * timeScale,
+                segment.endValue * curveHeight,
+                0
+            );
+            
+            Gizmos.DrawWireSphere(startPos, controlPointSize * 0.5f);
+            Gizmos.DrawWireSphere(endPos, controlPointSize * 0.5f);
+        }
+        
 #if UNITY_EDITOR
         /// <summary>
         /// 圧縮前後のカーブをAnimationClipとして保存
@@ -405,12 +570,55 @@ namespace CurveCompression
         {
             if (Application.isPlaying)
             {
-                var testData = GenerateTestData();
-                var result = useAdvancedCompression ? CompressDataAdvanced(testData) : CompressData(testData);
-                
-                if (result != null)
+                if (currentTestData != null && currentResult != null)
                 {
-                    SaveAsAnimationClips(testData, result);
+                    SaveAsAnimationClips(currentTestData, currentResult);
+                }
+                else
+                {
+                    Debug.LogWarning("圧縮データがありません。最初にテストを実行してください。");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("この機能は再生モードでのみ使用できます。");
+            }
+        }
+        
+        /// <summary>
+        /// 手動でテストデータを再生成
+        /// </summary>
+        [ContextMenu("Regenerate Test Data")]
+        public void RegenerateTestData()
+        {
+            if (Application.isPlaying)
+            {
+                currentTestData = GenerateTestData();
+                TestCompression();
+                Debug.Log("テストデータを再生成し、圧縮を実行しました。");
+            }
+            else
+            {
+                Debug.LogWarning("この機能は再生モードでのみ使用できます。");
+            }
+        }
+        
+        /// <summary>
+        /// 手動で圧縮を再実行
+        /// </summary>
+        [ContextMenu("Re-run Compression")]
+        public void RerunCompression()
+        {
+            if (Application.isPlaying)
+            {
+                if (currentTestData != null)
+                {
+                    TestCompression();
+                    Debug.Log("圧縮を再実行しました。");
+                }
+                else
+                {
+                    Debug.LogWarning("テストデータがありません。最初にテストデータを生成してください。");
                 }
             }
             else

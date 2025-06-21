@@ -62,6 +62,34 @@ namespace CurveCompression
         
         public CompressionDataType dataType = CompressionDataType.Animation;
         public ImportanceWeights importanceWeights = ImportanceWeights.Default;
+        
+        /// <summary>
+        /// パラメータのコピーを作成
+        /// </summary>
+        public CompressionParams Clone()
+        {
+            return new CompressionParams
+            {
+                tolerance = this.tolerance,
+                importanceThreshold = this.importanceThreshold,
+                compressionMethod = this.compressionMethod,
+                dataType = this.dataType,
+                importanceWeights = this.importanceWeights
+            };
+        }
+        
+        /// <summary>
+        /// 他のパラメータと等しいかチェック
+        /// </summary>
+        public bool Equals(CompressionParams other)
+        {
+            if (other == null) return false;
+            
+            return tolerance == other.tolerance &&
+                   importanceThreshold == other.importanceThreshold &&
+                   compressionMethod == other.compressionMethod &&
+                   dataType == other.dataType;
+        }
     }
     
     /// <summary>

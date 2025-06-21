@@ -148,12 +148,12 @@ namespace CurveCompression.Test
             }
             else if (useAdvancedCompression)
             {
-                result = CurveCompressor.CompressDataAdvanced(currentTestData, compressionParams);
+                result = Core.CurveCompressor.CompressDataAdvanced(currentTestData, compressionParams);
                 Debug.Log($"高度な圧縮（{compressionParams.compressionMethod}）を使用");
             }
             else
             {
-                result = CurveCompressor.CompressData(currentTestData, compressionParams);
+                result = Core.CurveCompressor.CompressData(currentTestData, compressionParams);
                 Debug.Log("従来の圧縮（線形補間ベース）を使用");
             }
             
@@ -190,7 +190,7 @@ namespace CurveCompression.Test
             foreach (CompressionMethod method in methods)
             {
                 compressionParams.compressionMethod = method;
-                var result = CurveCompressor.CompressDataAdvanced(testData, compressionParams);
+                var result = Core.CurveCompressor.CompressDataAdvanced(testData, compressionParams);
                 
                 if (result != null)
                 {

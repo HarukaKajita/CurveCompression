@@ -191,5 +191,72 @@ namespace CurveCompression
             
             return result.ToArray();
         }
+        
+        /// <summary>
+        /// 固定数のコントロールポイントでB-スプライン近似
+        /// </summary>
+        public static TimeValuePair[] ApproximateWithFixedPoints(TimeValuePair[] points, int numControlPoints)
+        {
+            if (points.Length <= 2 || numControlPoints >= points.Length)
+                return points;
+                
+            if (numControlPoints < 2)
+                numControlPoints = 2;
+            
+            // コントロールポイントのインデックスを均等に配置
+            var controlIndices = new int[numControlPoints];
+            for (int i = 0; i < numControlPoints; i++)
+            {
+                float t = (float)i / (numControlPoints - 1);
+                controlIndices[i] = Mathf.RoundToInt(t * (points.Length - 1));
+            }
+            
+            // コントロールポイントを抽出
+            var result = new TimeValuePair[numControlPoints];
+            for (int i = 0; i < numControlPoints; i++)
+            {
+                result[i] = points[controlIndices[i]];
+            }
+            
+            // より正確な近似のため、最小二乗法を適用（簡略版）
+            OptimizeControlPoints(points, result);
+            
+            return result;
+        }
+        
+        /// <summary>
+        /// コントロールポイントを最適化（簡略版）
+        /// </summary>
+        private static void OptimizeControlPoints(TimeValuePair[] originalPoints, TimeValuePair[] controlPoints)
+        {
+            // 簡単な最適化: 各コントロールポイント周辺のデータの平均値を使用
+            int windowSize = originalPoints.Length / (controlPoints.Length * 2);
+            windowSize = Mathf.Max(1, windowSize);
+            
+            for (int i = 1; i < controlPoints.Length - 1; i++) // 端点は固定
+            {
+                float sumTime = 0;
+                float sumValue = 0;
+                int count = 0;
+                
+                // 元のデータから対応する範囲を見つける
+                float targetTime = controlPoints[i].time;
+                
+                for (int j = 0; j < originalPoints.Length; j++)
+                {
+                    if (Mathf.Abs(originalPoints[j].time - targetTime) < windowSize * (originalPoints[1].time - originalPoints[0].time))
+                    {
+                        sumTime += originalPoints[j].time;
+                        sumValue += originalPoints[j].value;
+                        count++;
+                    }
+                }
+                
+                if (count > 0)
+                {
+                    controlPoints[i] = new TimeValuePair(sumTime / count, sumValue / count);
+                }
+            }
+        }
     }
 }

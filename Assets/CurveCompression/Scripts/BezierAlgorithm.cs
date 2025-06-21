@@ -268,5 +268,82 @@ namespace CurveCompression
             
             return maxError;
         }
+        
+        /// <summary>
+        /// 固定数のコントロールポイントでBezier曲線近似
+        /// </summary>
+        public static TimeValuePair[] ApproximateWithFixedPoints(TimeValuePair[] points, int numControlPoints)
+        {
+            if (points.Length <= 2 || numControlPoints >= points.Length)
+                return points;
+                
+            if (numControlPoints < 2)
+                numControlPoints = 2;
+            
+            // コントロールポイントのインデックスを均等に配置
+            var controlIndices = new int[numControlPoints];
+            for (int i = 0; i < numControlPoints; i++)
+            {
+                float t = (float)i / (numControlPoints - 1);
+                controlIndices[i] = Mathf.RoundToInt(t * (points.Length - 1));
+            }
+            
+            // コントロールポイントを抽出
+            var result = new TimeValuePair[numControlPoints];
+            for (int i = 0; i < numControlPoints; i++)
+            {
+                result[i] = points[controlIndices[i]];
+            }
+            
+            // タンジェントを最適化
+            OptimizeBezierTangents(points, result);
+            
+            return result;
+        }
+        
+        /// <summary>
+        /// Bezierタンジェントを最適化
+        /// </summary>
+        private static void OptimizeBezierTangents(TimeValuePair[] originalPoints, TimeValuePair[] controlPoints)
+        {
+            // 各コントロールポイントでの最適なタンジェントを計算
+            for (int i = 0; i < controlPoints.Length; i++)
+            {
+                float inTangent = 0f;
+                float outTangent = 0f;
+                
+                if (i > 0 && i < controlPoints.Length - 1)
+                {
+                    // 中間点: 前後の点から傾きを計算
+                    float prevSlope = (controlPoints[i].value - controlPoints[i - 1].value) / 
+                                    (controlPoints[i].time - controlPoints[i - 1].time);
+                    float nextSlope = (controlPoints[i + 1].value - controlPoints[i].value) / 
+                                    (controlPoints[i + 1].time - controlPoints[i].time);
+                    
+                    // 平均を取って滑らかにする
+                    float avgSlope = (prevSlope + nextSlope) * 0.5f;
+                    inTangent = avgSlope;
+                    outTangent = avgSlope;
+                }
+                else if (i == 0 && controlPoints.Length > 1)
+                {
+                    // 最初の点
+                    outTangent = (controlPoints[1].value - controlPoints[0].value) / 
+                               (controlPoints[1].time - controlPoints[0].time);
+                    inTangent = outTangent;
+                }
+                else if (i == controlPoints.Length - 1 && controlPoints.Length > 1)
+                {
+                    // 最後の点
+                    inTangent = (controlPoints[i].value - controlPoints[i - 1].value) / 
+                              (controlPoints[i].time - controlPoints[i - 1].time);
+                    outTangent = inTangent;
+                }
+                
+                // タンジェント情報を保持（実際の使用時に適用）
+                // 注: TimeValuePairにはタンジェント情報がないので、
+                // 実際の実装では別の方法で保持する必要があります
+            }
+        }
     }
 }

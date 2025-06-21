@@ -585,22 +585,152 @@ namespace CurveCompression
                 return null;
             }
             
-            // BSplineで固定数のコントロールポイントに圧縮
-            var compressedData = BSplineAlgorithm.ApproximateWithFixedPoints(originalData, numControlPoints);
-            
-            // CurveSegmentに変換
+            TimeValuePair[] compressedData;
             var segments = new List<CurveSegment>();
-            for (int i = 0; i < compressedData.Length - 1; i++)
+            
+            // CompressionMethodに応じて使用するアルゴリズムを選択
+            switch (compressionParams.compressionMethod)
             {
-                var controlPoints = new Vector2[] {
-                    new Vector2(compressedData[i].time, compressedData[i].value),
-                    new Vector2(compressedData[i + 1].time, compressedData[i + 1].value)
-                };
-                segments.Add(CurveSegment.CreateBSpline(controlPoints));
+                case CompressionMethod.RDP_Linear:
+                    // RDPで重要点を抽出し、線形補間
+                    compressedData = RDPAlgorithm.Simplify(originalData, compressionParams.tolerance);
+                    // numControlPointsに調整
+                    compressedData = ResampleToFixedPoints(compressedData, numControlPoints);
+                    // 線形セグメントを作成
+                    for (int i = 0; i < compressedData.Length - 1; i++)
+                    {
+                        segments.Add(CurveSegment.CreateLinear(
+                            compressedData[i].time, compressedData[i].value,
+                            compressedData[i + 1].time, compressedData[i + 1].value
+                        ));
+                    }
+                    break;
+                    
+                case CompressionMethod.RDP_BSpline:
+                    // RDPで重要点を抽出し、BSpline評価
+                    compressedData = RDPAlgorithm.Simplify(originalData, compressionParams.tolerance);
+                    compressedData = ResampleToFixedPoints(compressedData, numControlPoints);
+                    // BSplineセグメントを作成
+                    for (int i = 0; i < compressedData.Length - 1; i++)
+                    {
+                        var controlPoints = new Vector2[] {
+                            new Vector2(compressedData[i].time, compressedData[i].value),
+                            new Vector2(compressedData[i + 1].time, compressedData[i + 1].value)
+                        };
+                        segments.Add(CurveSegment.CreateBSpline(controlPoints));
+                    }
+                    break;
+                    
+                case CompressionMethod.RDP_Bezier:
+                    // RDPで重要点を抽出し、Bezier評価
+                    compressedData = RDPAlgorithm.Simplify(originalData, compressionParams.tolerance);
+                    compressedData = ResampleToFixedPoints(compressedData, numControlPoints);
+                    // Bezierセグメントを作成
+                    for (int i = 0; i < compressedData.Length - 1; i++)
+                    {
+                        float inTangent = 0f;
+                        float outTangent = 0f;
+                        
+                        // タンジェントの計算
+                        if (i > 0)
+                        {
+                            inTangent = (compressedData[i].value - compressedData[i - 1].value) / 
+                                       (compressedData[i].time - compressedData[i - 1].time);
+                        }
+                        if (i < compressedData.Length - 2)
+                        {
+                            outTangent = (compressedData[i + 2].value - compressedData[i + 1].value) / 
+                                        (compressedData[i + 2].time - compressedData[i + 1].time);
+                        }
+                        
+                        segments.Add(CurveSegment.CreateBezier(
+                            compressedData[i].time, compressedData[i].value,
+                            compressedData[i + 1].time, compressedData[i + 1].value,
+                            inTangent, outTangent
+                        ));
+                    }
+                    break;
+                    
+                case CompressionMethod.BSpline_Direct:
+                    // BSplineで固定数のコントロールポイントに圧縮
+                    compressedData = BSplineAlgorithm.ApproximateWithFixedPoints(originalData, numControlPoints);
+                    // BSplineセグメントを作成
+                    for (int i = 0; i < compressedData.Length - 1; i++)
+                    {
+                        var controlPoints = new Vector2[] {
+                            new Vector2(compressedData[i].time, compressedData[i].value),
+                            new Vector2(compressedData[i + 1].time, compressedData[i + 1].value)
+                        };
+                        segments.Add(CurveSegment.CreateBSpline(controlPoints));
+                    }
+                    break;
+                    
+                case CompressionMethod.Bezier_Direct:
+                default:
+                    // Bezierで固定数のコントロールポイントに圧縮
+                    compressedData = BezierAlgorithm.ApproximateWithFixedPoints(originalData, numControlPoints);
+                    // Bezierセグメントを作成
+                    for (int i = 0; i < compressedData.Length - 1; i++)
+                    {
+                        float inTangent = 0f;
+                        float outTangent = 0f;
+                        
+                        // タンジェントの計算
+                        if (i > 0)
+                        {
+                            inTangent = (compressedData[i].value - compressedData[i - 1].value) / 
+                                       (compressedData[i].time - compressedData[i - 1].time);
+                        }
+                        if (i < compressedData.Length - 2)
+                        {
+                            outTangent = (compressedData[i + 2].value - compressedData[i + 1].value) / 
+                                        (compressedData[i + 2].time - compressedData[i + 1].time);
+                        }
+                        
+                        segments.Add(CurveSegment.CreateBezier(
+                            compressedData[i].time, compressedData[i].value,
+                            compressedData[i + 1].time, compressedData[i + 1].value,
+                            inTangent, outTangent
+                        ));
+                    }
+                    break;
             }
             
             var compressedCurve = new CompressedCurveData(segments.ToArray());
             return new CompressionResult(originalData, compressedCurve);
+        }
+        
+        /// <summary>
+        /// ポイント数を固定数にリサンプリング
+        /// </summary>
+        private TimeValuePair[] ResampleToFixedPoints(TimeValuePair[] points, int targetCount)
+        {
+            if (points.Length <= targetCount)
+                return points;
+                
+            var result = new TimeValuePair[targetCount];
+            
+            // 均等にサンプリング
+            for (int i = 0; i < targetCount; i++)
+            {
+                float t = (float)i / (targetCount - 1);
+                int sourceIndex = Mathf.FloorToInt(t * (points.Length - 1));
+                
+                if (sourceIndex >= points.Length - 1)
+                {
+                    result[i] = points[points.Length - 1];
+                }
+                else
+                {
+                    // 線形補間
+                    float localT = (t * (points.Length - 1)) - sourceIndex;
+                    float time = Mathf.Lerp(points[sourceIndex].time, points[sourceIndex + 1].time, localT);
+                    float value = Mathf.Lerp(points[sourceIndex].value, points[sourceIndex + 1].value, localT);
+                    result[i] = new TimeValuePair(time, value);
+                }
+            }
+            
+            return result;
         }
         
 #if UNITY_EDITOR

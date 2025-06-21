@@ -1,4 +1,8 @@
 ﻿using UnityEngine;
+#if UNITY_EDITOR
+using UnityEditor;
+using System.IO;
+#endif
 
 namespace CurveCompression
 {
@@ -28,6 +32,12 @@ namespace CurveCompression
         [SerializeField] private float lineWidth = 0.02f;
         [SerializeField] private float curveHeight = 2.0f;
         [SerializeField] private float timeScale = 1.0f;
+        
+        [Header("AnimationClip保存設定")]
+        [SerializeField] private bool saveAsAnimationClip = true;
+        [SerializeField] private string animationClipSavePath = "Assets/CurveCompression/GeneratedClips/";
+        [SerializeField] private string animationClipNamePrefix = "CurveCompression_";
+        [SerializeField] private string targetPropertyPath = "transform.position.y"; // アニメーション対象プロパティ
         
         private LineRenderer originalLineRenderer;
         private LineRenderer compressedLineRenderer;
@@ -190,6 +200,11 @@ namespace CurveCompression
                     VisualizeData(testData, result.compressedData);
                     VisualizeError(testData, result.compressedData);
                 }
+                
+                if (saveAsAnimationClip)
+                {
+                    SaveAsAnimationClips(testData, result);
+                }
             }
         }
         
@@ -292,5 +307,104 @@ namespace CurveCompression
             
             return curve;
         }
+        
+#if UNITY_EDITOR
+        /// <summary>
+        /// 圧縮前後のカーブをAnimationClipとして保存
+        /// </summary>
+        private void SaveAsAnimationClips(TimeValuePair[] originalData, CompressionResult result)
+        {
+            try
+            {
+                // 保存フォルダの作成
+                if (!Directory.Exists(animationClipSavePath))
+                {
+                    Directory.CreateDirectory(animationClipSavePath);
+                }
+                
+                string timestamp = System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                
+                // 元データのAnimationClip作成
+                var originalCurve = BezierAlgorithm.ToAnimationCurve(originalData);
+                var originalClip = CreateAnimationClip(originalCurve, $"{animationClipNamePrefix}Original_{timestamp}");
+                SaveAnimationClip(originalClip, $"{animationClipNamePrefix}Original_{timestamp}.anim");
+                
+                // 圧縮データのAnimationClip作成
+                AnimationCurve compressedCurve;
+                if (result.compressedCurve != null)
+                {
+                    // 新しいデータ構造を使用している場合
+                    compressedCurve = BezierAlgorithm.ToAnimationCurve(result.compressedCurve);
+                }
+                else
+                {
+                    // 従来のデータ構造を使用している場合
+                    compressedCurve = BezierAlgorithm.ToAnimationCurve(result.compressedData);
+                }
+                
+                var compressedClip = CreateAnimationClip(compressedCurve, $"{animationClipNamePrefix}Compressed_{timestamp}");
+                SaveAnimationClip(compressedClip, $"{animationClipNamePrefix}Compressed_{timestamp}.anim");
+                
+                Debug.Log($"AnimationClipを保存しました: {animationClipSavePath}");
+                Debug.Log($"元データ: {animationClipNamePrefix}Original_{timestamp}.anim");
+                Debug.Log($"圧縮データ: {animationClipNamePrefix}Compressed_{timestamp}.anim");
+                
+                // Projectビューを更新
+                AssetDatabase.Refresh();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"AnimationClip保存中にエラーが発生しました: {e.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// AnimationClipを作成
+        /// </summary>
+        private AnimationClip CreateAnimationClip(AnimationCurve curve, string clipName)
+        {
+            var clip = new AnimationClip();
+            clip.name = clipName;
+            
+            // カーブをAnimationClipに設定
+            clip.SetCurve("", typeof(Transform), targetPropertyPath, curve);
+            
+            // Legacy設定（必要に応じて）
+            clip.legacy = false;
+            
+            return clip;
+        }
+        
+        /// <summary>
+        /// AnimationClipをアセットとして保存
+        /// </summary>
+        private void SaveAnimationClip(AnimationClip clip, string fileName)
+        {
+            string fullPath = Path.Combine(animationClipSavePath, fileName);
+            AssetDatabase.CreateAsset(clip, fullPath);
+        }
+        
+        /// <summary>
+        /// エディタでのみ使用可能な手動保存メソッド
+        /// </summary>
+        [ContextMenu("Save Current Data as AnimationClips")]
+        public void SaveCurrentDataAsAnimationClips()
+        {
+            if (Application.isPlaying)
+            {
+                var testData = GenerateTestData();
+                var result = useAdvancedCompression ? CompressDataAdvanced(testData) : CompressData(testData);
+                
+                if (result != null)
+                {
+                    SaveAsAnimationClips(testData, result);
+                }
+            }
+            else
+            {
+                Debug.LogWarning("この機能は再生モードでのみ使用できます。");
+            }
+        }
+#endif
     }
 }

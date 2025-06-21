@@ -10,16 +10,17 @@ namespace CurveCompression.Algorithms
     public static class BSplineAlgorithm
     {
         /// <summary>
-        /// 適応的B-スプライン近似
+        /// 適応的B-スプライン近似（レガシー互換性のため維持）
         /// </summary>
         public static TimeValuePair[] ApproximateWithBSpline(TimeValuePair[] points, float tolerance)
         {
             if (points.Length <= 2) return points;
             
-            var segments = new List<BSplineSegment>();
-            AdaptiveSegmentation(points, 0, points.Length - 1, tolerance, segments);
+            // 新しい実装を使用してCompressedCurveDataを取得
+            var compressedData = Compress(points, tolerance);
             
-            return ConvertSegmentsToPoints(segments, points[0].time, points[^1].time);
+            // TimeValuePair配列に変換
+            return compressedData.ToTimeValuePairs(points.Length);
         }
         
         /// <summary>
@@ -37,18 +38,21 @@ namespace CurveCompression.Algorithms
             }
             
             var segments = new List<CurveSegment>();
-            AdaptiveSegmentationNew(points, 0, points.Length - 1, tolerance, segments);
+            AdaptiveSegmentation(points, 0, points.Length - 1, tolerance, segments);
             
             return new CompressedCurveData(segments.ToArray());
         }
         
         private static void AdaptiveSegmentation(TimeValuePair[] points, int start, int end, 
-            float tolerance, List<BSplineSegment> segments)
+            float tolerance, List<CurveSegment> segments)
         {
             if (end - start <= 3)
             {
                 // 最小セグメントサイズに達したら線形補間
-                segments.Add(new BSplineSegment(points[start], points[end]));
+                segments.Add(CurveSegment.CreateLinear(
+                    points[start].time, points[start].value,
+                    points[end].time, points[end].value
+                ));
                 return;
             }
             
@@ -69,74 +73,7 @@ namespace CurveCompression.Algorithms
             }
         }
         
-        private static BSplineSegment FitBSpline(TimeValuePair[] points, int start, int end)
-        {
-            int count = end - start + 1;
-            if (count < 4)
-            {
-                return new BSplineSegment(points[start], points[end]);
-            }
-            
-            // コントロールポイントの計算（簡略化版）
-            Vector2[] controlPoints = new Vector2[4];
-            controlPoints[0] = new Vector2(points[start].time, points[start].value);
-            controlPoints[3] = new Vector2(points[end].time, points[end].value);
-            
-            // 中間コントロールポイントを推定
-            int mid1 = start + count / 3;
-            int mid2 = start + 2 * count / 3;
-            controlPoints[1] = new Vector2(points[mid1].time, points[mid1].value);
-            controlPoints[2] = new Vector2(points[mid2].time, points[mid2].value);
-            
-            return new BSplineSegment(controlPoints);
-        }
-        
-        private static float CalculateMaxError(TimeValuePair[] points, int start, int end, BSplineSegment segment)
-        {
-            float maxError = 0f;
-            
-            for (int i = start; i <= end; i++)
-            {
-                float t = (points[i].time - points[start].time) / (points[end].time - points[start].time);
-                float splineValue = segment.Evaluate(t);
-                float error = Mathf.Abs(points[i].value - splineValue);
-                maxError = Mathf.Max(maxError, error);
-            }
-            
-            return maxError;
-        }
-        
-        private static void AdaptiveSegmentationNew(TimeValuePair[] points, int start, int end, 
-            float tolerance, List<CurveSegment> segments)
-        {
-            if (end - start <= 3)
-            {
-                // 最小セグメントサイズに達したら線形補間
-                segments.Add(CurveSegment.CreateLinear(
-                    points[start].time, points[start].value,
-                    points[end].time, points[end].value
-                ));
-                return;
-            }
-            
-            // B-スプラインでフィット
-            var segment = FitBSplineNew(points, start, end);
-            float maxError = CalculateMaxErrorNew(points, start, end, segment);
-            
-            if (maxError <= tolerance)
-            {
-                segments.Add(segment);
-            }
-            else
-            {
-                // セグメントを分割
-                int mid = (start + end) / 2;
-                AdaptiveSegmentationNew(points, start, mid, tolerance, segments);
-                AdaptiveSegmentationNew(points, mid, end, tolerance, segments);
-            }
-        }
-        
-        private static CurveSegment FitBSplineNew(TimeValuePair[] points, int start, int end)
+        private static CurveSegment FitBSpline(TimeValuePair[] points, int start, int end)
         {
             int count = end - start + 1;
             if (count < 4)
@@ -161,7 +98,7 @@ namespace CurveCompression.Algorithms
             return CurveSegment.CreateBSpline(controlPoints);
         }
         
-        private static float CalculateMaxErrorNew(TimeValuePair[] points, int start, int end, CurveSegment segment)
+        private static float CalculateMaxError(TimeValuePair[] points, int start, int end, CurveSegment segment)
         {
             float maxError = 0f;
             
@@ -173,24 +110,6 @@ namespace CurveCompression.Algorithms
             }
             
             return maxError;
-        }
-        
-        private static TimeValuePair[] ConvertSegmentsToPoints(List<BSplineSegment> segments, float startTime, float endTime)
-        {
-            var result = new List<TimeValuePair>();
-            
-            foreach (var segment in segments)
-            {
-                result.Add(new TimeValuePair(segment.StartTime, segment.StartValue));
-            }
-            
-            if (segments.Count > 0)
-            {
-                var lastSegment = segments[^1];
-                result.Add(new TimeValuePair(lastSegment.EndTime, lastSegment.EndValue));
-            }
-            
-            return result.ToArray();
         }
         
         /// <summary>

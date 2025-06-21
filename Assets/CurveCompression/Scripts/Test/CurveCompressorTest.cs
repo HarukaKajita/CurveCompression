@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using System.Collections.Generic;
 #if UNITY_EDITOR
 using UnityEditor;
 using System.IO;
@@ -52,6 +53,23 @@ namespace CurveCompression
         [SerializeField] private bool autoUpdateOnParameterChange = true;
         [SerializeField] private float updateCheckInterval = 0.5f; // 秒
         
+        [Header("コントロールポイント推定")]
+        [SerializeField] private bool useFixedControlPoints = false;
+        [SerializeField] private int fixedControlPointCount = 10;
+        [SerializeField] private bool showEstimationResults = true;
+        [SerializeField] private string selectedEstimationMethod = "Elbow";
+        
+        // 推定結果の表示用
+        [System.Serializable]
+        public class EstimationDisplay
+        {
+            public string methodName;
+            public int optimalPoints;
+            public float score;
+            public string metrics;
+        }
+        [SerializeField] private List<EstimationDisplay> estimationResults = new List<EstimationDisplay>();
+        
         private LineRenderer originalLineRenderer;
         private LineRenderer compressedLineRenderer;
         private LineRenderer errorLineRenderer;
@@ -59,6 +77,7 @@ namespace CurveCompression
         private CompressionResult currentResult;
         private CompressionParams lastParams;
         private float lastUpdateTime;
+        private Dictionary<string, ControlPointEstimator.EstimationResult> lastEstimationResults;
         
         /// <summary>
         /// データを圧縮
@@ -190,6 +209,12 @@ namespace CurveCompression
                 currentTestData = GenerateTestData();
             }
             
+            // コントロールポイント推定を実行
+            if (showEstimationResults)
+            {
+                RunControlPointEstimation();
+            }
+            
             if (compareAllMethods)
             {
                 CompareAllCompressionMethods(currentTestData);
@@ -198,7 +223,13 @@ namespace CurveCompression
             
             CompressionResult result;
             
-            if (useAdvancedCompression)
+            if (useFixedControlPoints)
+            {
+                // 固定コントロールポイントでの圧縮
+                result = CompressWithFixedControlPoints(currentTestData, fixedControlPointCount);
+                Debug.Log($"固定コントロールポイント圧縮（{fixedControlPointCount}ポイント）を使用");
+            }
+            else if (useAdvancedCompression)
             {
                 result = CompressDataAdvanced(currentTestData);
                 Debug.Log($"高度な圧縮（{compressionParams.compressionMethod}）を使用");
@@ -487,6 +518,91 @@ namespace CurveCompression
             Gizmos.DrawWireSphere(endPos, controlPointSize * 0.5f);
         }
         
+        /// <summary>
+        /// コントロールポイント推定を実行
+        /// </summary>
+        private void RunControlPointEstimation()
+        {
+            if (currentTestData == null || currentTestData.Length < 3)
+                return;
+                
+            // 全アルゴリズムで推定を実行
+            lastEstimationResults = ControlPointEstimator.EstimateAll(
+                currentTestData, 
+                compressionParams.tolerance,
+                2,
+                Mathf.Min(currentTestData.Length / 2, 100)
+            );
+            
+            // 表示用リストを更新
+            estimationResults.Clear();
+            foreach (var kvp in lastEstimationResults)
+            {
+                var display = new EstimationDisplay
+                {
+                    methodName = kvp.Key,
+                    optimalPoints = kvp.Value.optimalPoints,
+                    score = kvp.Value.score,
+                    metrics = FormatMetrics(kvp.Value.metrics)
+                };
+                estimationResults.Add(display);
+            }
+            
+            // 選択されたメソッドの結果を固定コントロールポイント数に反映
+            if (lastEstimationResults.ContainsKey(selectedEstimationMethod))
+            {
+                fixedControlPointCount = lastEstimationResults[selectedEstimationMethod].optimalPoints;
+            }
+            
+            Debug.Log("コントロールポイント推定完了:");
+            foreach (var result in estimationResults)
+            {
+                Debug.Log($"- {result.methodName}: {result.optimalPoints}ポイント (スコア: {result.score:F3})");
+            }
+        }
+        
+        /// <summary>
+        /// メトリクスを文字列形式にフォーマット
+        /// </summary>
+        private string FormatMetrics(Dictionary<string, float> metrics)
+        {
+            var formatted = new List<string>();
+            foreach (var kvp in metrics)
+            {
+                formatted.Add($"{kvp.Key}: {kvp.Value:F3}");
+            }
+            return string.Join(", ", formatted);
+        }
+        
+        /// <summary>
+        /// 固定コントロールポイント数で圧縮
+        /// </summary>
+        private CompressionResult CompressWithFixedControlPoints(TimeValuePair[] originalData, int numControlPoints)
+        {
+            if (originalData == null || originalData.Length == 0)
+            {
+                Debug.LogWarning("圧縮対象のデータが空です");
+                return null;
+            }
+            
+            // BSplineで固定数のコントロールポイントに圧縮
+            var compressedData = BSplineAlgorithm.ApproximateWithFixedPoints(originalData, numControlPoints);
+            
+            // CurveSegmentに変換
+            var segments = new List<CurveSegment>();
+            for (int i = 0; i < compressedData.Length - 1; i++)
+            {
+                var controlPoints = new Vector2[] {
+                    new Vector2(compressedData[i].time, compressedData[i].value),
+                    new Vector2(compressedData[i + 1].time, compressedData[i + 1].value)
+                };
+                segments.Add(CurveSegment.CreateBSpline(controlPoints));
+            }
+            
+            var compressedCurve = new CompressedCurveData(segments.ToArray());
+            return new CompressionResult(originalData, compressedCurve);
+        }
+        
 #if UNITY_EDITOR
         /// <summary>
         /// 圧縮前後のカーブをAnimationClipとして保存
@@ -616,6 +732,30 @@ namespace CurveCompression
                 {
                     TestCompression();
                     Debug.Log("圧縮を再実行しました。");
+                }
+                else
+                {
+                    Debug.LogWarning("テストデータがありません。最初にテストデータを生成してください。");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("この機能は再生モードでのみ使用できます。");
+            }
+        }
+        
+        /// <summary>
+        /// 手動でコントロールポイント推定を実行
+        /// </summary>
+        [ContextMenu("Run Control Point Estimation")]
+        public void RunControlPointEstimationManual()
+        {
+            if (Application.isPlaying)
+            {
+                if (currentTestData != null)
+                {
+                    RunControlPointEstimation();
+                    Debug.Log("コントロールポイント推定を実行しました。");
                 }
                 else
                 {

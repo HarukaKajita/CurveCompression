@@ -26,6 +26,7 @@ namespace CurveCompression
         [Header("可視化設定")]
         [SerializeField] private bool enableVisualization = true;
         [SerializeField] private bool useAdvancedCompression = true;
+        [SerializeField] private bool compareAllMethods = false; // 全手法比較テスト
         [SerializeField] private Color originalDataColor = Color.blue;
         [SerializeField] private Color compressedDataColor = Color.red;
         [SerializeField] private Color errorVisualizationColor = Color.yellow;
@@ -85,20 +86,8 @@ namespace CurveCompression
                 return null;
             }
             
-            CompressedCurveData compressedCurve;
-            
-            if (compressionParams.enableHybrid)
-            {
-                compressedCurve = HybridCompressor.CompressAdvanced(originalData, compressionParams);
-            }
-            else if (compressionParams.adaptiveWeight < 0.5f)
-            {
-                compressedCurve = BSplineAlgorithm.Compress(originalData, compressionParams.tolerance);
-            }
-            else
-            {
-                compressedCurve = BezierAlgorithm.Compress(originalData, compressionParams.tolerance);
-            }
+            // 新しい統一的な圧縮手法を使用
+            CompressedCurveData compressedCurve = HybridCompressor.CompressAdvanced(originalData, compressionParams);
             
             return new CompressionResult(originalData, compressedCurve);
         }
@@ -173,12 +162,19 @@ namespace CurveCompression
         private void TestCompression()
         {
             var testData = GenerateTestData();
+            
+            if (compareAllMethods)
+            {
+                CompareAllCompressionMethods(testData);
+                return;
+            }
+            
             CompressionResult result;
             
             if (useAdvancedCompression)
             {
                 result = CompressDataAdvanced(testData);
-                Debug.Log("高度な圧縮（曲線ベース）を使用");
+                Debug.Log($"高度な圧縮（{compressionParams.compressionMethod}）を使用");
             }
             else
             {
@@ -206,6 +202,33 @@ namespace CurveCompression
                     SaveAsAnimationClips(testData, result);
                 }
             }
+        }
+        
+        private void CompareAllCompressionMethods(TimeValuePair[] testData)
+        {
+            Debug.Log("=== 全圧縮手法比較テスト ===");
+            Debug.Log($"元データ: {testData.Length} ポイント");
+            
+            var originalMethod = compressionParams.compressionMethod;
+            var methods = System.Enum.GetValues(typeof(CompressionMethod));
+            
+            foreach (CompressionMethod method in methods)
+            {
+                compressionParams.compressionMethod = method;
+                var result = CompressDataAdvanced(testData);
+                
+                if (result != null)
+                {
+                    Debug.Log($"--- {method} ---");
+                    Debug.Log($"圧縮後: {result.compressedCount} セグメント/ポイント");
+                    Debug.Log($"圧縮率: {result.compressionRatio:F3}");
+                    Debug.Log($"最大誤差: {result.maxError:F6}");
+                    Debug.Log($"平均誤差: {result.avgError:F6}");
+                }
+            }
+            
+            // 元の設定を復元
+            compressionParams.compressionMethod = originalMethod;
         }
         
         private void VisualizeData(TimeValuePair[] originalData, TimeValuePair[] compressedData)

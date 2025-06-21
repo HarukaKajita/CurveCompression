@@ -36,7 +36,7 @@ namespace CurveCompression
         }
         
         /// <summary>
-        /// ハイブリッド圧縮を実行（新しいデータ構造を使用）
+        /// 指定された圧縮手法で圧縮を実行
         /// </summary>
         public static CompressedCurveData CompressAdvanced(TimeValuePair[] points, CompressionParams parameters)
         {
@@ -52,14 +52,23 @@ namespace CurveCompression
             // データタイプに基づく重み設定の自動調整
             var weights = GetOptimalWeights(parameters.dataType, parameters.importanceWeights);
             
-            // 1. B-スプライン近似
-            var bsplineResult = BSplineAlgorithm.Compress(points, parameters.tolerance);
-            
-            // 2. Bezier曲線近似
-            var bezierResult = BezierAlgorithm.Compress(points, parameters.tolerance);
-            
-            // 3. 品質評価に基づく選択
-            return SelectOptimalCurveResult(points, bsplineResult, bezierResult, parameters);
+            return parameters.compressionMethod switch
+            {
+                CompressionMethod.RDP_Linear => RDPAlgorithm.CompressWithCurveEvaluation(
+                    points, parameters.tolerance, CurveType.Linear, parameters.importanceThreshold, weights),
+                    
+                CompressionMethod.RDP_BSpline => RDPAlgorithm.CompressWithCurveEvaluation(
+                    points, parameters.tolerance, CurveType.BSpline, parameters.importanceThreshold, weights),
+                    
+                CompressionMethod.RDP_Bezier => RDPAlgorithm.CompressWithCurveEvaluation(
+                    points, parameters.tolerance, CurveType.Bezier, parameters.importanceThreshold, weights),
+                    
+                CompressionMethod.BSpline_Direct => BSplineAlgorithm.Compress(points, parameters.tolerance),
+                
+                CompressionMethod.Bezier_Direct => BezierAlgorithm.Compress(points, parameters.tolerance),
+                
+                _ => BezierAlgorithm.Compress(points, parameters.tolerance) // デフォルト
+            };
         }
         
         public static ImportanceWeights GetOptimalWeights(CompressionDataType dataType, ImportanceWeights userWeights)

@@ -34,6 +34,18 @@ namespace CurveCompression
         FinancialData,   // 金融データ
         Custom           // カスタムデータ
     }
+    
+    /// <summary>
+    /// 圧縮手法の選択
+    /// </summary>
+    public enum CompressionMethod
+    {
+        RDP_Linear,        // RDPに基づく線形補間評価
+        RDP_BSpline,       // RDPに基づくBSpline評価  
+        RDP_Bezier,        // RDPに基づくBezier評価
+        BSpline_Direct,    // BSplineによる直接近似
+        Bezier_Direct      // Bezierによる直接近似
+    }
     /// <summary>
     /// 圧縮パラメータ
     /// </summary>
@@ -46,11 +58,7 @@ namespace CurveCompression
         [Range(0.1f, 10.0f)]
         public float importanceThreshold = 1.0f; // 重要度閾値
         
-        
-        [Range(0.0f, 1.0f)]
-        public float adaptiveWeight = 0.5f;      // 適応的重み（0=RDP重視, 1=スプライン重視）
-        
-        public bool enableHybrid = true;          // ハイブリッド手法を使用
+        public CompressionMethod compressionMethod = CompressionMethod.Bezier_Direct; // 圧縮手法
         
         public CompressionDataType dataType = CompressionDataType.Animation;
         public ImportanceWeights importanceWeights = ImportanceWeights.Default;

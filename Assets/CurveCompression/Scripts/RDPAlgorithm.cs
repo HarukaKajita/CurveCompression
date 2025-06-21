@@ -27,6 +27,86 @@ namespace CurveCompression
             return result.ToArray();
         }
         
+        /// <summary>
+        /// RDPアルゴリズムによる点列簡約（曲線評価付き）
+        /// </summary>
+        public static CompressedCurveData CompressWithCurveEvaluation(TimeValuePair[] points, float tolerance, 
+            CurveType curveType, float importanceThreshold = 1.0f, ImportanceWeights weights = null)
+        {
+            if (points.Length <= 2)
+            {
+                var linearSegment = CurveSegment.CreateLinear(
+                    points[0].time, points[0].value,
+                    points[^1].time, points[^1].value
+                );
+                return new CompressedCurveData(new[] { linearSegment });
+            }
+            
+            // RDPで重要点を抽出
+            var keyPoints = Simplify(points, tolerance, importanceThreshold, weights);
+            
+            // 抽出した重要点を指定された曲線タイプで評価
+            return ConvertToCurveData(keyPoints, curveType);
+        }
+        
+        private static CompressedCurveData ConvertToCurveData(TimeValuePair[] keyPoints, CurveType curveType)
+        {
+            if (keyPoints.Length <= 1)
+                return new CompressedCurveData(new CurveSegment[0]);
+                
+            var segments = new List<CurveSegment>();
+            
+            for (int i = 0; i < keyPoints.Length - 1; i++)
+            {
+                var startPoint = keyPoints[i];
+                var endPoint = keyPoints[i + 1];
+                
+                switch (curveType)
+                {
+                    case CurveType.Linear:
+                        segments.Add(CurveSegment.CreateLinear(
+                            startPoint.time, startPoint.value,
+                            endPoint.time, endPoint.value
+                        ));
+                        break;
+                        
+                    case CurveType.BSpline:
+                        // RDP結果に対してはシンプルなBSplineを作成
+                        var controlPoints = new Vector2[] {
+                            new Vector2(startPoint.time, startPoint.value),
+                            new Vector2(endPoint.time, endPoint.value)
+                        };
+                        segments.Add(CurveSegment.CreateBSpline(controlPoints));
+                        break;
+                        
+                    case CurveType.Bezier:
+                        // 隣接点から接線を推定
+                        float inTangent = 0f;
+                        float outTangent = 0f;
+                        
+                        if (i > 0)
+                        {
+                            var prevPoint = keyPoints[i - 1];
+                            inTangent = (startPoint.value - prevPoint.value) / (startPoint.time - prevPoint.time);
+                        }
+                        if (i < keyPoints.Length - 2)
+                        {
+                            var nextPoint = keyPoints[i + 2];
+                            outTangent = (nextPoint.value - endPoint.value) / (nextPoint.time - endPoint.time);
+                        }
+                        
+                        segments.Add(CurveSegment.CreateBezier(
+                            startPoint.time, startPoint.value,
+                            endPoint.time, endPoint.value,
+                            inTangent, outTangent
+                        ));
+                        break;
+                }
+            }
+            
+            return new CompressedCurveData(segments.ToArray());
+        }
+        
         private static void SimplifyRecursive(TimeValuePair[] points, int start, int end, 
             float tolerance, float importanceThreshold, ImportanceWeights weights, List<TimeValuePair> result)
         {

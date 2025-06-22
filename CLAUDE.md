@@ -219,3 +219,18 @@ All compression methods use `ValidationUtils` for input validation:
 - Enable `CurveVisualizer` for real-time visual feedback
 - Monitor compression metrics (ratio, max/avg error) for quality assessment
 - Export results as AnimationClips for detailed Unity inspection
+
+## Claude CodeWorkflow
+### Language Guidelines
+- **Always think in English**
+- When responding to prompts or writing to comments and other text that will be shown to users, translate into Japanese before writing.
+- Do not limit yourself to Japanese when thinking or gathering information from the web; always use English as your base and be able to work in multiple languages.
+- Commit messages should be in Japanese.
+
+### Proceed with the following steps:
+- Explore the codebase to understand the current implementation.
+- Identify areas for improvement or new features based on the project requirements.
+- Think a plan for implementing changes, considering the architecture and design patterns.
+- Implement the changes.
+- Ensure consistencies with the existing code style ,architecture adn documentation.
+- git add and commit your changes with a descriptive message in Japanese.

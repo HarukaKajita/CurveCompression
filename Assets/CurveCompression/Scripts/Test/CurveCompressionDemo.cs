@@ -284,12 +284,14 @@ namespace CurveCompression.Test
                     break;
                     
                 case CompressionMethod.BSpline_Direct:
-                    compressedData = BSplineAlgorithm.ApproximateWithFixedPoints(originalData, numControlPoints);
+                    var bsplineResult = BSplineAlgorithm.CompressWithFixedControlPoints(originalData, numControlPoints);
+                    compressedData = bsplineResult.ToTimeValuePairs(originalData.Length);
                     break;
                     
                 case CompressionMethod.Bezier_Direct:
                 default:
-                    compressedData = BezierAlgorithm.ApproximateWithFixedPoints(originalData, numControlPoints);
+                    var bezierResult = BezierAlgorithm.CompressWithFixedControlPoints(originalData, numControlPoints);
+                    compressedData = bezierResult.ToTimeValuePairs(originalData.Length);
                     break;
             }
             
@@ -399,7 +401,7 @@ namespace CurveCompression.Test
                 string timestamp = System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
                 
                 // 元データのAnimationClip作成
-                var originalCurve = BezierAlgorithm.ToAnimationCurve(originalData);
+                var originalCurve = UnityCompressionUtils.ToAnimationCurve(originalData);
                 var originalClip = CreateAnimationClip(originalCurve, $"{animationClipNamePrefix}Original_{timestamp}");
                 SaveAnimationClip(originalClip, $"{animationClipNamePrefix}Original_{timestamp}.anim");
                 
@@ -407,11 +409,11 @@ namespace CurveCompression.Test
                 AnimationCurve compressedCurve;
                 if (result.compressedCurve != null)
                 {
-                    compressedCurve = BezierAlgorithm.ToAnimationCurve(result.compressedCurve);
+                    compressedCurve = UnityCompressionUtils.ToAnimationCurve(result.compressedCurve);
                 }
                 else
                 {
-                    compressedCurve = BezierAlgorithm.ToAnimationCurve(result.compressedData);
+                    compressedCurve = UnityCompressionUtils.ToAnimationCurve(result.compressedData);
                 }
                 
                 var compressedClip = CreateAnimationClip(compressedCurve, $"{animationClipNamePrefix}Compressed_{timestamp}");

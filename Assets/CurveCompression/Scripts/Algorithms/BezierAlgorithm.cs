@@ -132,32 +132,6 @@ namespace CurveCompression.Algorithms
             return curve;
         }
         
-        /// <summary>
-        /// AnimationCurveからCompressedCurveDataを作成
-        /// </summary>
-        public static CompressedCurveData FromAnimationCurve(AnimationCurve curve)
-        {
-            if (curve == null || curve.length == 0)
-                return new CompressedCurveData(new CurveSegment[0]);
-                
-            var segments = new List<CurveSegment>();
-            
-            for (int i = 0; i < curve.length - 1; i++)
-            {
-                var keyframe1 = curve[i];
-                var keyframe2 = curve[i + 1];
-                
-                var segment = CurveSegment.CreateBezier(
-                    keyframe1.time, keyframe1.value,
-                    keyframe2.time, keyframe2.value,
-                    keyframe1.outTangent, keyframe2.inTangent
-                );
-                
-                segments.Add(segment);
-            }
-            
-            return new CompressedCurveData(segments.ToArray());
-        }
         
         private static void AdaptiveBezierSegmentation(TimeValuePair[] points, int start, int end, 
             float tolerance, List<CurveSegment> segments)
@@ -286,7 +260,30 @@ namespace CurveCompression.Algorithms
         }
         
         /// <summary>
-        /// 固定数のコントロールポイントでBezier曲線近似
+        /// 固定数のコントロールポイントでBezier曲線近似（標準インターフェース）
+        /// </summary>
+        public static CompressedCurveData CompressWithFixedControlPoints(TimeValuePair[] points, int numControlPoints)
+        {
+            var approximatedPoints = ApproximateWithFixedPoints(points, numControlPoints);
+            
+            // Bezierセグメントとして結果を構築
+            var segments = new List<CurveSegment>();
+            var tangents = TangentCalculator.CalculateSmoothTangents(approximatedPoints);
+            
+            for (int i = 0; i < approximatedPoints.Length - 1; i++)
+            {
+                segments.Add(CurveSegment.CreateBezier(
+                    approximatedPoints[i].time, approximatedPoints[i].value,
+                    approximatedPoints[i + 1].time, approximatedPoints[i + 1].value,
+                    tangents[i], tangents[i + 1]
+                ));
+            }
+            
+            return new CompressedCurveData(segments.ToArray());
+        }
+        
+        /// <summary>
+        /// 固定数のコントロールポイントでBezier曲線近似（レガシー互換）
         /// </summary>
         public static TimeValuePair[] ApproximateWithFixedPoints(TimeValuePair[] points, int numControlPoints)
         {

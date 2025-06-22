@@ -114,7 +114,30 @@ namespace CurveCompression.Algorithms
         }
         
         /// <summary>
-        /// 固定数のコントロールポイントでB-スプライン近似
+        /// 固定数のコントロールポイントでB-スプライン近似（標準インターフェース）
+        /// </summary>
+        public static CompressedCurveData CompressWithFixedControlPoints(TimeValuePair[] points, int numControlPoints)
+        {
+            var approximatedPoints = ApproximateWithFixedPoints(points, numControlPoints);
+            
+            // B-スプラインセグメントとして結果を構築
+            var segments = new List<CurveSegment>();
+            
+            if (approximatedPoints.Length >= 2)
+            {
+                var controlPoints = new Vector2[approximatedPoints.Length];
+                for (int i = 0; i < approximatedPoints.Length; i++)
+                {
+                    controlPoints[i] = new Vector2(approximatedPoints[i].time, approximatedPoints[i].value);
+                }
+                segments.Add(CurveSegment.CreateBSpline(controlPoints));
+            }
+            
+            return new CompressedCurveData(segments.ToArray());
+        }
+        
+        /// <summary>
+        /// 固定数のコントロールポイントでB-スプライン近似（レガシー互換）
         /// </summary>
         public static TimeValuePair[] ApproximateWithFixedPoints(TimeValuePair[] points, int numControlPoints)
         {

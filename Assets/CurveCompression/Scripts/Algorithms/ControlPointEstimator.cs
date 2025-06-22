@@ -51,6 +51,24 @@ namespace CurveCompression.Algorithms
 
             return results;
         }
+        
+        /// <summary>
+        /// 指定された推定方法で単一の推定を実行
+        /// </summary>
+        public static EstimationResult EstimateByMethod(TimeValuePair[] data, float tolerance, string methodName, int minPoints = 2, int maxPoints = 50)
+        {
+            return methodName switch
+            {
+                "Elbow" => EstimateByElbowMethod(data, tolerance, minPoints, maxPoints),
+                "Curvature" => EstimateByCurvature(data, tolerance, minPoints, maxPoints),
+                "Entropy" => EstimateByInformationEntropy(data, tolerance, minPoints, maxPoints),
+                "DouglasePeucker" => EstimateByDouglasPeuckerAdaptive(data, tolerance, minPoints, maxPoints),
+                "TotalVariation" => EstimateByTotalVariation(data, tolerance, minPoints, maxPoints),
+                "ErrorBound" => DetermineByErrorBound(data, tolerance),
+                "Statistical" => DetermineByStatistical(data, tolerance),
+                _ => throw new ArgumentException($"未サポートの推定方法: {methodName}")
+            };
+        }
 
         /// <summary>
         /// 1. Elbow法（改良版）

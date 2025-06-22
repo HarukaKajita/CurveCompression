@@ -26,12 +26,9 @@ namespace CurveCompression.Test
         
         [Header("圧縮オプション")]
         [SerializeField] private bool compareAllMethods = false;
-        [SerializeField] private bool useFixedControlPoints = false;
-        [SerializeField] private int fixedControlPointCount = 10;
         
         [Header("コントロールポイント推定")]
         [SerializeField] private bool showEstimationResults = true;
-        [SerializeField] private string selectedEstimationMethod = "Elbow";
         [SerializeField] private List<EstimationDisplay> estimationResults = new List<EstimationDisplay>();
         
         [Header("実行時更新設定")]
@@ -139,28 +136,35 @@ namespace CurveCompression.Test
             
             CompressionResult result;
             
-            if (useFixedControlPoints)
+            switch (compressionParams.compressionMode)
             {
-                // 固定コントロールポイントでの圧縮
-                result = CompressWithFixedControlPoints(currentTestData, fixedControlPointCount);
-                Debug.Log($"固定コントロールポイント圧縮（{fixedControlPointCount}ポイント）を使用");
-            }
-            else
-            {
-                result = Core.CurveCompressor.Compress(currentTestData, compressionParams);
-                Debug.Log($"標準圧縮（{compressionParams.compressionMethod}）を使用");
+                case CompressionMode.ToleranceBased:
+                    result = Core.CurveCompressor.Compress(currentTestData, compressionParams);
+                    Debug.Log($"許容誤差ベース圧縮（{compressionParams.compressionMethod}、誤差: {compressionParams.tolerance}）を使用");
+                    break;
+                    
+                case CompressionMode.FixedControlPoints:
+                    result = CompressWithFixedControlPoints(currentTestData, compressionParams.fixedControlPointCount, compressionParams.compressionMethod);
+                    Debug.Log($"固定コントロールポイント圧縮（{compressionParams.fixedControlPointCount}ポイント、{compressionParams.compressionMethod}）を使用");
+                    break;
+                    
+                case CompressionMode.EstimatedControlPoints:
+                    int estimatedCount = GetEstimatedControlPointCount();
+                    result = CompressWithFixedControlPoints(currentTestData, estimatedCount, compressionParams.compressionMethod);
+                    Debug.Log($"推定コントロールポイント圧縮（{estimatedCount}ポイント、{compressionParams.estimationMethod}推定、{compressionParams.compressionMethod}）を使用");
+                    break;
+                    
+                default:
+                    result = Core.CurveCompressor.Compress(currentTestData, compressionParams);
+                    Debug.Log($"デフォルト圧縮（{compressionParams.compressionMethod}）を使用");
+                    break;
             }
             
             currentResult = result;
             
             if (result != null)
             {
-                Debug.Log($"圧縮結果:");
-                Debug.Log($"元データ: {result.originalCount} ポイント");
-                Debug.Log($"圧縮後: {result.compressedCount} ポイント");
-                Debug.Log($"圧縮率: {result.compressionRatio:F3}");
-                Debug.Log($"最大誤差: {result.maxError:F6}");
-                Debug.Log($"平均誤差: {result.avgError:F6}");
+                DisplayResults(result);
                 
                 // 可視化
                 visualizer.VisualizeData(currentTestData, result);
@@ -230,10 +234,11 @@ namespace CurveCompression.Test
                 estimationResults.Add(display);
             }
             
-            // 選択されたメソッドの結果を固定コントロールポイント数に反映
-            if (lastEstimationResults.ContainsKey(selectedEstimationMethod))
+            // 現在の推定メソッドの結果をパラメータに反映
+            string currentMethod = compressionParams.estimationMethod.ToString();
+            if (lastEstimationResults.ContainsKey(currentMethod))
             {
-                fixedControlPointCount = lastEstimationResults[selectedEstimationMethod].optimalPoints;
+                compressionParams.fixedControlPointCount = lastEstimationResults[currentMethod].optimalPoints;
             }
             
             Debug.Log("コントロールポイント推定完了:");
@@ -259,7 +264,7 @@ namespace CurveCompression.Test
         /// <summary>
         /// 固定コントロールポイント数で圧縮
         /// </summary>
-        private CompressionResult CompressWithFixedControlPoints(TimeValuePair[] originalData, int numControlPoints)
+        private CompressionResult CompressWithFixedControlPoints(TimeValuePair[] originalData, int numControlPoints, CompressionMethod method)
         {
             if (originalData == null || originalData.Length == 0)
             {
@@ -267,121 +272,183 @@ namespace CurveCompression.Test
                 return null;
             }
             
-            TimeValuePair[] compressedData;
+            // 入力検証
+            if (numControlPoints < 2)
+            {
+                Debug.LogWarning("コントロールポイント数は2以上である必要があります");
+                numControlPoints = 2;
+            }
+            
+            if (numControlPoints > originalData.Length)
+            {
+                Debug.LogWarning($"コントロールポイント数は元データ数({originalData.Length})以下である必要があります");
+                numControlPoints = originalData.Length;
+            }
+            
+            // アルゴリズムに応じて固定コントロールポイント圧縮を実行
+            switch (method)
+            {
+                case CompressionMethod.BSpline_Direct:
+                    return CreateResultFromFixedPoints(
+                        BSplineAlgorithm.ApproximateWithFixedPoints(originalData, numControlPoints),
+                        originalData, CurveType.BSpline);
+                        
+                case CompressionMethod.Bezier_Direct:
+                    return CreateResultFromFixedPoints(
+                        BezierAlgorithm.ApproximateWithFixedPoints(originalData, numControlPoints),
+                        originalData, CurveType.Bezier);
+                        
+                default: // 線形補間（RDPベースは固定数に適さないため線形にフォールバック）
+                    return CreateResultFromFixedPoints(
+                        SelectOptimalLinearPoints(originalData, numControlPoints),
+                        originalData, CurveType.Linear);
+            }
+        }
+        
+        /// <summary>
+        /// 固定コントロールポイントから結果を作成
+        /// </summary>
+        private CompressionResult CreateResultFromFixedPoints(TimeValuePair[] controlPoints, TimeValuePair[] originalData, CurveType curveType)
+        {
             var segments = new List<CurveSegment>();
             
-            // CompressionMethodに応じて使用するアルゴリズムを選択
-            switch (compressionParams.compressionMethod)
+            // Bezier用のタンジェントを事前計算
+            float[] tangents = null;
+            if (curveType == CurveType.Bezier)
             {
-                case CompressionMethod.RDP_Linear:
-                case CompressionMethod.RDP_BSpline:
-                case CompressionMethod.RDP_Bezier:
-                    // RDPベースの手法
-                    var rdpResult = RDPAlgorithm.Compress(originalData, compressionParams);
-                    compressedData = rdpResult.ToTimeValuePairs(originalData.Length);
-                    compressedData = ResampleToFixedPoints(compressedData, numControlPoints);
-                    break;
-                    
-                case CompressionMethod.BSpline_Direct:
-                    var bsplineResult = BSplineAlgorithm.CompressWithFixedControlPoints(originalData, numControlPoints);
-                    compressedData = bsplineResult.ToTimeValuePairs(originalData.Length);
-                    break;
-                    
-                case CompressionMethod.Bezier_Direct:
-                default:
-                    var bezierResult = BezierAlgorithm.CompressWithFixedControlPoints(originalData, numControlPoints);
-                    compressedData = bezierResult.ToTimeValuePairs(originalData.Length);
-                    break;
+                tangents = TangentCalculator.CalculateSmoothTangents(controlPoints);
             }
             
             // セグメントを作成
-            segments = CreateSegmentsFromPoints(compressedData, compressionParams.compressionMethod);
+            for (int i = 0; i < controlPoints.Length - 1; i++)
+            {
+                switch (curveType)
+                {
+                    case CurveType.Linear:
+                        segments.Add(CurveSegment.CreateLinear(
+                            controlPoints[i].time, controlPoints[i].value,
+                            controlPoints[i + 1].time, controlPoints[i + 1].value
+                        ));
+                        break;
+                        
+                    case CurveType.BSpline:
+                        var bsplineControlPoints = new Vector2[] {
+                            new Vector2(controlPoints[i].time, controlPoints[i].value),
+                            new Vector2(controlPoints[i + 1].time, controlPoints[i + 1].value)
+                        };
+                        segments.Add(CurveSegment.CreateBSpline(bsplineControlPoints));
+                        break;
+                        
+                    case CurveType.Bezier:
+                        segments.Add(CurveSegment.CreateBezier(
+                            controlPoints[i].time, controlPoints[i].value,
+                            controlPoints[i + 1].time, controlPoints[i + 1].value,
+                            tangents[i], tangents[i + 1]
+                        ));
+                        break;
+                }
+            }
             
             var compressedCurve = new CompressedCurveData(segments.ToArray());
             return new CompressionResult(originalData, compressedCurve);
         }
         
         /// <summary>
-        /// ポイント配列からセグメントを作成
+        /// 線形補間用の最適なポイント選択
         /// </summary>
-        private List<CurveSegment> CreateSegmentsFromPoints(TimeValuePair[] points, CompressionMethod method)
+        private TimeValuePair[] SelectOptimalLinearPoints(TimeValuePair[] data, int numPoints)
         {
-            var segments = new List<CurveSegment>();
-            
-            // Bezier用のタンジェントを事前計算
-            float[] tangents = null;
-            if (method == CompressionMethod.RDP_Bezier || method == CompressionMethod.Bezier_Direct)
-            {
-                tangents = TangentCalculator.CalculateSmoothTangents(points);
-            }
-            
-            for (int i = 0; i < points.Length - 1; i++)
-            {
-                switch (method)
-                {
-                    case CompressionMethod.RDP_Linear:
-                        segments.Add(CurveSegment.CreateLinear(
-                            points[i].time, points[i].value,
-                            points[i + 1].time, points[i + 1].value
-                        ));
-                        break;
-                        
-                    case CompressionMethod.RDP_BSpline:
-                    case CompressionMethod.BSpline_Direct:
-                        var controlPoints = new Vector2[] {
-                            new Vector2(points[i].time, points[i].value),
-                            new Vector2(points[i + 1].time, points[i + 1].value)
-                        };
-                        segments.Add(CurveSegment.CreateBSpline(controlPoints));
-                        break;
-                        
-                    case CompressionMethod.RDP_Bezier:
-                    case CompressionMethod.Bezier_Direct:
-                        segments.Add(CurveSegment.CreateBezier(
-                            points[i].time, points[i].value,
-                            points[i + 1].time, points[i + 1].value,
-                            tangents[i],      // 始点のタンジェント
-                            tangents[i + 1]   // 終点のタンジェント
-                        ));
-                        break;
-                }
-            }
-            
-            return segments;
-        }
-        
-        /// <summary>
-        /// ポイント数を固定数にリサンプリング
-        /// </summary>
-        private TimeValuePair[] ResampleToFixedPoints(TimeValuePair[] points, int targetCount)
-        {
-            if (points.Length <= targetCount)
-                return points;
+            if (numPoints >= data.Length)
+                return data;
                 
-            var result = new TimeValuePair[targetCount];
+            var result = new TimeValuePair[numPoints];
             
-            // 均等にサンプリング
-            for (int i = 0; i < targetCount; i++)
+            // 均等分布で選択
+            for (int i = 0; i < numPoints; i++)
             {
-                float t = (float)i / (targetCount - 1);
-                int sourceIndex = Mathf.FloorToInt(t * (points.Length - 1));
-                
-                if (sourceIndex >= points.Length - 1)
-                {
-                    result[i] = points[points.Length - 1];
-                }
-                else
-                {
-                    // 線形補間
-                    float localT = (t * (points.Length - 1)) - sourceIndex;
-                    float time = Mathf.Lerp(points[sourceIndex].time, points[sourceIndex + 1].time, localT);
-                    float value = InterpolationUtils.LinearInterpolate(points, time);
-                    result[i] = new TimeValuePair(time, value);
-                }
+                float t = (float)i / (numPoints - 1);
+                int index = Mathf.RoundToInt(t * (data.Length - 1));
+                result[i] = data[index];
             }
             
             return result;
         }
+        
+        /// <summary>
+        /// 圧縮結果の詳細表示
+        /// </summary>
+        private void DisplayResults(CompressionResult result)
+        {
+            Debug.Log($"=== 圧縮結果 ===");
+            Debug.Log($"モード: {compressionParams.compressionMode}");
+            Debug.Log($"アルゴリズム: {compressionParams.compressionMethod}");
+            Debug.Log($"元データ: {result.originalCount} ポイント");
+            
+            switch (compressionParams.compressionMode)
+            {
+                case CompressionMode.ToleranceBased:
+                    Debug.Log($"許容誤差: {compressionParams.tolerance}");
+                    Debug.Log($"圧縮後: {result.compressedCount} ポイント/セグメント");
+                    Debug.Log($"データタイプ重み: {compressionParams.dataType}");
+                    break;
+                    
+                case CompressionMode.FixedControlPoints:
+                    Debug.Log($"指定コントロールポイント数: {compressionParams.fixedControlPointCount}");
+                    Debug.Log($"実際のコントロールポイント数: {result.compressedCount}");
+                    Debug.Log($"セグメント数: {result.compressedCurve?.segments?.Length ?? 0}");
+                    break;
+                    
+                case CompressionMode.EstimatedControlPoints:
+                    Debug.Log($"推定方法: {compressionParams.estimationMethod}");
+                    Debug.Log($"推定コントロールポイント数: {result.compressedCount}");
+                    Debug.Log($"セグメント数: {result.compressedCurve?.segments?.Length ?? 0}");
+                    if (lastEstimationResults?.ContainsKey(compressionParams.estimationMethod.ToString()) == true)
+                    {
+                        var estimation = lastEstimationResults[compressionParams.estimationMethod.ToString()];
+                        Debug.Log($"推定スコア: {estimation.score:F3}");
+                    }
+                    break;
+            }
+            
+            Debug.Log($"圧縮率: {result.compressionRatio:F3}");
+            Debug.Log($"最大誤差: {result.maxError:F6}");
+            Debug.Log($"平均誤差: {result.avgError:F6}");
+            
+            if (result.compressionTime != TimeSpan.Zero)
+            {
+                Debug.Log($"圧縮時間: {result.compressionTime.TotalMilliseconds:F2}ms");
+            }
+        }
+        
+        /// <summary>
+        /// 推定アルゴリズムからコントロールポイント数を取得
+        /// </summary>
+        private int GetEstimatedControlPointCount()
+        {
+            string methodName = compressionParams.estimationMethod.ToString();
+            
+            if (lastEstimationResults?.ContainsKey(methodName) == true)
+            {
+                return lastEstimationResults[methodName].optimalPoints;
+            }
+            
+            // フォールバック: リアルタイム推定
+            try
+            {
+                var estimation = ControlPointEstimator.EstimateByMethod(
+                    currentTestData,
+                    compressionParams.tolerance,
+                    methodName);
+                
+                return estimation.optimalPoints;
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"推定アルゴリズム {methodName} でエラーが発生しました: {ex.Message}。デフォルト値を使用します。");
+                return compressionParams.fixedControlPointCount;
+            }
+        }
+        
         
 #if UNITY_EDITOR
         /// <summary>

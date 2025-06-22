@@ -5,6 +5,30 @@ using CurveCompression.Core;
 namespace CurveCompression.DataStructures
 {
     /// <summary>
+    /// 圧縮モード
+    /// </summary>
+    public enum CompressionMode
+    {
+        ToleranceBased,        // 許容誤差ベースの圧縮
+        FixedControlPoints,    // 固定コントロールポイント数
+        EstimatedControlPoints // 推定アルゴリズムでコントロールポイント数決定
+    }
+    
+    /// <summary>
+    /// 制御点推定方法
+    /// </summary>
+    public enum EstimationMethod
+    {
+        Elbow,
+        Curvature,
+        Entropy,
+        DouglasePeucker,
+        TotalVariation,
+        ErrorBound,
+        Statistical
+    }
+
+    /// <summary>
     /// 圧縮パラメータ
     /// </summary>
     [Serializable]
@@ -17,9 +41,14 @@ namespace CurveCompression.DataStructures
         [SerializeField] private float _importanceThreshold = 1.0f;
         
         public CompressionMethod compressionMethod = CompressionMethod.Bezier_Direct; // 圧縮手法
+        public CompressionMode compressionMode = CompressionMode.ToleranceBased; // 圧縮モード
         
         public CompressionDataType dataType = CompressionDataType.Animation;
         public ImportanceWeights importanceWeights = ImportanceWeights.Default;
+        
+        [Range(2, 1000)]
+        public int fixedControlPointCount = 10; // 固定コントロールポイント数
+        public EstimationMethod estimationMethod = EstimationMethod.TotalVariation; // 推定方法
         
         /// <summary>
         /// 許容誤差
@@ -58,8 +87,11 @@ namespace CurveCompression.DataStructures
                 tolerance = this.tolerance,
                 importanceThreshold = this.importanceThreshold,
                 compressionMethod = this.compressionMethod,
+                compressionMode = this.compressionMode,
                 dataType = this.dataType,
-                importanceWeights = this.importanceWeights
+                importanceWeights = this.importanceWeights,
+                fixedControlPointCount = this.fixedControlPointCount,
+                estimationMethod = this.estimationMethod
             };
         }
         
@@ -73,7 +105,10 @@ namespace CurveCompression.DataStructures
             return tolerance == other.tolerance &&
                    importanceThreshold == other.importanceThreshold &&
                    compressionMethod == other.compressionMethod &&
-                   dataType == other.dataType;
+                   compressionMode == other.compressionMode &&
+                   dataType == other.dataType &&
+                   fixedControlPointCount == other.fixedControlPointCount &&
+                   estimationMethod == other.estimationMethod;
         }
     }
 }

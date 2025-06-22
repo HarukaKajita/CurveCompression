@@ -4,6 +4,8 @@ using CurveCompression.DataStructures;
 using CurveCompression.Core;
 using CurveCompression.Algorithms;
 using CurveCompression.Visualization;
+using System.Diagnostics;
+using Debug = UnityEngine.Debug;
 #if UNITY_EDITOR
 using UnityEditor;
 using System.IO;
@@ -285,24 +287,50 @@ namespace CurveCompression.Test
                 numControlPoints = originalData.Length;
             }
             
+            // 時間計測の開始
+            Stopwatch stopwatch = null;
+            if (compressionParams.enableTimeMeasurement)
+            {
+                stopwatch = Stopwatch.StartNew();
+            }
+            
+            TimeValuePair[] controlPoints;
+            CurveType curveType;
+            
             // アルゴリズムに応じて固定コントロールポイント圧縮を実行
             switch (method)
             {
                 case CompressionMethod.BSpline_Direct:
-                    return CreateResultFromFixedPoints(
-                        BSplineAlgorithm.ApproximateWithFixedPoints(originalData, numControlPoints),
-                        originalData, CurveType.BSpline);
+                    controlPoints = BSplineAlgorithm.ApproximateWithFixedPoints(originalData, numControlPoints);
+                    curveType = CurveType.BSpline;
+                    break;
                         
                 case CompressionMethod.Bezier_Direct:
-                    return CreateResultFromFixedPoints(
-                        BezierAlgorithm.ApproximateWithFixedPoints(originalData, numControlPoints),
-                        originalData, CurveType.Bezier);
+                    controlPoints = BezierAlgorithm.ApproximateWithFixedPoints(originalData, numControlPoints);
+                    curveType = CurveType.Bezier;
+                    break;
                         
                 default: // 線形補間（RDPベースは固定数に適さないため線形にフォールバック）
-                    return CreateResultFromFixedPoints(
-                        SelectOptimalLinearPoints(originalData, numControlPoints),
-                        originalData, CurveType.Linear);
+                    controlPoints = SelectOptimalLinearPoints(originalData, numControlPoints);
+                    curveType = CurveType.Linear;
+                    break;
             }
+            
+            // 時間計測の終了
+            float compressionTime = 0f;
+            if (stopwatch != null)
+            {
+                stopwatch.Stop();
+                compressionTime = (float)stopwatch.Elapsed.TotalMilliseconds;
+            }
+            
+            var result = CreateResultFromFixedPoints(controlPoints, originalData, curveType);
+            if (result != null)
+            {
+                result.compressionTime = compressionTime;
+            }
+            
+            return result;
         }
         
         /// <summary>
@@ -413,6 +441,12 @@ namespace CurveCompression.Test
             Debug.Log($"圧縮率: {result.compressionRatio:F3}");
             Debug.Log($"最大誤差: {result.maxError:F6}");
             Debug.Log($"平均誤差: {result.avgError:F6}");
+            
+            // 圧縮時間を表示（計測有効時のみ）
+            if (compressionParams.enableTimeMeasurement && result.compressionTime > 0)
+            {
+                Debug.Log($"圧縮時間: {result.compressionTime:F2} ms");
+            }
         }
         
         /// <summary>

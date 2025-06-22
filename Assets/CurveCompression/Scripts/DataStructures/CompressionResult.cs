@@ -15,6 +15,7 @@ namespace CurveCompression.DataStructures
         public float avgError;
         public int originalCount;
         public int compressedCount;
+        public float compressionTime; // 圧縮処理時間（ミリ秒）
         
         public CompressionResult(TimeValuePair[] original, TimeValuePair[] compressed)
         {
@@ -22,6 +23,7 @@ namespace CurveCompression.DataStructures
             originalCount = original.Length;
             compressedCount = compressed.Length;
             compressionRatio = (float)compressedCount / originalCount;
+            compressionTime = 0f; // デフォルト値（計測なし）
             CalculateErrors(original, compressed);
         }
         
@@ -32,6 +34,7 @@ namespace CurveCompression.DataStructures
             originalCount = original.Length;
             compressedCount = compressed.segments.Length;
             compressionRatio = (float)compressedCount / originalCount;
+            compressionTime = 0f; // デフォルト値（計測なし）
             CalculateErrorsWithCurve(original, compressed);
         }
         

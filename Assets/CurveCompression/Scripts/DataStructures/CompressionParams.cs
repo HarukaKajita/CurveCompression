@@ -50,6 +50,8 @@ namespace CurveCompression.DataStructures
         public int fixedControlPointCount = 10; // 固定コントロールポイント数
         public EstimationMethod estimationMethod = EstimationMethod.TotalVariation; // 推定方法
         
+        public bool enableTimeMeasurement = false; // 時間計測を有効化
+        
         /// <summary>
         /// 許容誤差
         /// </summary>
@@ -91,7 +93,8 @@ namespace CurveCompression.DataStructures
                 dataType = this.dataType,
                 importanceWeights = this.importanceWeights,
                 fixedControlPointCount = this.fixedControlPointCount,
-                estimationMethod = this.estimationMethod
+                estimationMethod = this.estimationMethod,
+                enableTimeMeasurement = this.enableTimeMeasurement
             };
         }
         
@@ -108,7 +111,8 @@ namespace CurveCompression.DataStructures
                    compressionMode == other.compressionMode &&
                    dataType == other.dataType &&
                    fixedControlPointCount == other.fixedControlPointCount &&
-                   estimationMethod == other.estimationMethod;
+                   estimationMethod == other.estimationMethod &&
+                   enableTimeMeasurement == other.enableTimeMeasurement;
         }
     }
 }

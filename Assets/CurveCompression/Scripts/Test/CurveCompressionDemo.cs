@@ -413,11 +413,6 @@ namespace CurveCompression.Test
             Debug.Log($"圧縮率: {result.compressionRatio:F3}");
             Debug.Log($"最大誤差: {result.maxError:F6}");
             Debug.Log($"平均誤差: {result.avgError:F6}");
-            
-            if (result.compressionTime != TimeSpan.Zero)
-            {
-                Debug.Log($"圧縮時間: {result.compressionTime.TotalMilliseconds:F2}ms");
-            }
         }
         
         /// <summary>

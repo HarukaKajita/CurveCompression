@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using CurveCompression.Core;
 
 namespace CurveCompression.DataStructures
 {
@@ -10,15 +11,42 @@ namespace CurveCompression.DataStructures
     public class CompressionParams
     {
         [Range(0.001f, 1.0f)]
-        public float tolerance = 0.01f;          // 許容誤差
+        [SerializeField] private float _tolerance = 0.01f;
         
         [Range(0.1f, 10.0f)]
-        public float importanceThreshold = 1.0f; // 重要度閾値
+        [SerializeField] private float _importanceThreshold = 1.0f;
         
         public CompressionMethod compressionMethod = CompressionMethod.Bezier_Direct; // 圧縮手法
         
         public CompressionDataType dataType = CompressionDataType.Animation;
         public ImportanceWeights importanceWeights = ImportanceWeights.Default;
+        
+        /// <summary>
+        /// 許容誤差
+        /// </summary>
+        public float tolerance
+        {
+            get => _tolerance;
+            set
+            {
+                ValidationUtils.ValidateTolerance(value, nameof(tolerance));
+                _tolerance = value;
+            }
+        }
+        
+        /// <summary>
+        /// 重要度閾値
+        /// </summary>
+        public float importanceThreshold
+        {
+            get => _importanceThreshold;
+            set
+            {
+                if (value <= 0f)
+                    throw new ArgumentOutOfRangeException(nameof(importanceThreshold), "Importance threshold must be positive");
+                _importanceThreshold = value;
+            }
+        }
         
         /// <summary>
         /// パラメータのコピーを作成

@@ -19,6 +19,9 @@ namespace CurveCompression.Algorithms
         public static TimeValuePair[] Simplify(TimeValuePair[] points, float tolerance, 
             float importanceThreshold = 1.0f, ImportanceWeights weights = null)
         {
+            ValidationUtils.ValidatePoints(points, nameof(points));
+            ValidationUtils.ValidateTolerance(tolerance, nameof(tolerance));
+            
             if (points.Length <= 2) return points;
             
             var result = new List<TimeValuePair>();
@@ -35,6 +38,9 @@ namespace CurveCompression.Algorithms
         public static CompressedCurveData CompressWithCurveEvaluation(TimeValuePair[] points, float tolerance, 
             CurveType curveType, float importanceThreshold = 1.0f, ImportanceWeights weights = null)
         {
+            ValidationUtils.ValidatePoints(points, nameof(points));
+            ValidationUtils.ValidateTolerance(tolerance, nameof(tolerance));
+            
             if (points.Length <= 2)
             {
                 var linearSegment = CurveSegment.CreateLinear(

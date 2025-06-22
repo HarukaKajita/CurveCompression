@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using CurveCompression.DataStructures;
+using CurveCompression.Core;
 
 namespace CurveCompression.Algorithms
 {
@@ -14,6 +15,9 @@ namespace CurveCompression.Algorithms
         /// </summary>
         public static TimeValuePair[] ApproximateWithBSpline(TimeValuePair[] points, float tolerance)
         {
+            ValidationUtils.ValidatePoints(points, nameof(points));
+            ValidationUtils.ValidateTolerance(tolerance, nameof(tolerance));
+            
             if (points.Length <= 2) return points;
             
             // 新しい実装を使用してCompressedCurveDataを取得
@@ -28,6 +32,9 @@ namespace CurveCompression.Algorithms
         /// </summary>
         public static CompressedCurveData Compress(TimeValuePair[] points, float tolerance)
         {
+            ValidationUtils.ValidatePoints(points, nameof(points));
+            ValidationUtils.ValidateTolerance(tolerance, nameof(tolerance));
+            
             if (points.Length <= 2)
             {
                 var linearSegment = CurveSegment.CreateLinear(
@@ -117,11 +124,11 @@ namespace CurveCompression.Algorithms
         /// </summary>
         public static TimeValuePair[] ApproximateWithFixedPoints(TimeValuePair[] points, int numControlPoints)
         {
+            ValidationUtils.ValidatePoints(points, nameof(points));
+            ValidationUtils.ValidateControlPointCount(numControlPoints, points.Length, nameof(numControlPoints));
+            
             if (points.Length <= 2 || numControlPoints >= points.Length)
                 return points;
-                
-            if (numControlPoints < 2)
-                numControlPoints = 2;
             
             // コントロールポイントのインデックスを均等に配置
             var controlIndices = new int[numControlPoints];

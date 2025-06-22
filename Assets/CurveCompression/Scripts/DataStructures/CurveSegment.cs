@@ -45,8 +45,7 @@ namespace CurveCompression.DataStructures
         /// </summary>
         public static CurveSegment CreateBSpline(Vector2[] controlPoints)
         {
-            if (controlPoints == null || controlPoints.Length < 2)
-                throw new ArgumentException("B-スプラインには少なくとも2つのコントロールポイントが必要です");
+            ValidationUtils.ValidateControlPoints(controlPoints, nameof(controlPoints));
                 
             return new CurveSegment
             {

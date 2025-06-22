@@ -631,27 +631,15 @@ namespace CurveCompression.Test
                     compressedData = RDPAlgorithm.Simplify(originalData, compressionParams.tolerance);
                     compressedData = ResampleToFixedPoints(compressedData, numControlPoints);
                     // Bezierセグメントを作成
+                    // タンジェントを事前計算
+                    float[] tangents = Core.TangentCalculator.CalculateSmoothTangents(compressedData);
                     for (int i = 0; i < compressedData.Length - 1; i++)
                     {
-                        float inTangent = 0f;
-                        float outTangent = 0f;
-                        
-                        // タンジェントの計算
-                        if (i > 0)
-                        {
-                            inTangent = (compressedData[i].value - compressedData[i - 1].value) / 
-                                       (compressedData[i].time - compressedData[i - 1].time);
-                        }
-                        if (i < compressedData.Length - 2)
-                        {
-                            outTangent = (compressedData[i + 2].value - compressedData[i + 1].value) / 
-                                        (compressedData[i + 2].time - compressedData[i + 1].time);
-                        }
-                        
                         segments.Add(CurveSegment.CreateBezier(
                             compressedData[i].time, compressedData[i].value,
                             compressedData[i + 1].time, compressedData[i + 1].value,
-                            inTangent, outTangent
+                            tangents[i],      // 始点のタンジェント
+                            tangents[i + 1]   // 終点のタンジェント
                         ));
                     }
                     break;
@@ -675,27 +663,15 @@ namespace CurveCompression.Test
                     // Bezierで固定数のコントロールポイントに圧縮
                     compressedData = BezierAlgorithm.ApproximateWithFixedPoints(originalData, numControlPoints);
                     // Bezierセグメントを作成
+                    // タンジェントを事前計算
+                    float[] tangents = Core.TangentCalculator.CalculateSmoothTangents(compressedData);
                     for (int i = 0; i < compressedData.Length - 1; i++)
                     {
-                        float inTangent = 0f;
-                        float outTangent = 0f;
-                        
-                        // タンジェントの計算
-                        if (i > 0)
-                        {
-                            inTangent = (compressedData[i].value - compressedData[i - 1].value) / 
-                                       (compressedData[i].time - compressedData[i - 1].time);
-                        }
-                        if (i < compressedData.Length - 2)
-                        {
-                            outTangent = (compressedData[i + 2].value - compressedData[i + 1].value) / 
-                                        (compressedData[i + 2].time - compressedData[i + 1].time);
-                        }
-                        
                         segments.Add(CurveSegment.CreateBezier(
                             compressedData[i].time, compressedData[i].value,
                             compressedData[i + 1].time, compressedData[i + 1].value,
-                            inTangent, outTangent
+                            tangents[i],      // 始点のタンジェント
+                            tangents[i + 1]   // 終点のタンジェント
                         ));
                     }
                     break;

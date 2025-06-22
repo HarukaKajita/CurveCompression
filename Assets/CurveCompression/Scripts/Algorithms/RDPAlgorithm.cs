@@ -57,6 +57,13 @@ namespace CurveCompression.Algorithms
                 
             var segments = new List<CurveSegment>();
             
+            // Bezier用のタンジェントを事前計算
+            float[] tangents = null;
+            if (curveType == CurveType.Bezier)
+            {
+                tangents = Core.TangentCalculator.CalculateSmoothTangents(keyPoints);
+            }
+            
             for (int i = 0; i < keyPoints.Length - 1; i++)
             {
                 var startPoint = keyPoints[i];
@@ -81,25 +88,11 @@ namespace CurveCompression.Algorithms
                         break;
                         
                     case CurveType.Bezier:
-                        // 隣接点から接線を推定
-                        float inTangent = 0f;
-                        float outTangent = 0f;
-                        
-                        if (i > 0)
-                        {
-                            var prevPoint = keyPoints[i - 1];
-                            inTangent = (startPoint.value - prevPoint.value) / (startPoint.time - prevPoint.time);
-                        }
-                        if (i < keyPoints.Length - 2)
-                        {
-                            var nextPoint = keyPoints[i + 2];
-                            outTangent = (nextPoint.value - endPoint.value) / (nextPoint.time - endPoint.time);
-                        }
-                        
                         segments.Add(CurveSegment.CreateBezier(
                             startPoint.time, startPoint.value,
                             endPoint.time, endPoint.value,
-                            inTangent, outTangent
+                            tangents[i],      // 始点のタンジェント
+                            tangents[i + 1]   // 終点のタンジェント
                         ));
                         break;
                 }

@@ -313,6 +313,13 @@ namespace CurveCompression.Test
         {
             var segments = new List<CurveSegment>();
             
+            // Bezier用のタンジェントを事前計算
+            float[] tangents = null;
+            if (method == CompressionMethod.RDP_Bezier || method == CompressionMethod.Bezier_Direct)
+            {
+                tangents = TangentCalculator.CalculateSmoothTangents(points);
+            }
+            
             for (int i = 0; i < points.Length - 1; i++)
             {
                 switch (method)
@@ -335,24 +342,11 @@ namespace CurveCompression.Test
                         
                     case CompressionMethod.RDP_Bezier:
                     case CompressionMethod.Bezier_Direct:
-                        float inTangent = 0f;
-                        float outTangent = 0f;
-                        
-                        if (i > 0)
-                        {
-                            inTangent = (points[i].value - points[i - 1].value) / 
-                                       (points[i].time - points[i - 1].time);
-                        }
-                        if (i < points.Length - 2)
-                        {
-                            outTangent = (points[i + 2].value - points[i + 1].value) / 
-                                        (points[i + 2].time - points[i + 1].time);
-                        }
-                        
                         segments.Add(CurveSegment.CreateBezier(
                             points[i].time, points[i].value,
                             points[i + 1].time, points[i + 1].value,
-                            inTangent, outTangent
+                            tangents[i],      // 始点のタンジェント
+                            tangents[i + 1]   // 終点のタンジェント
                         ));
                         break;
                 }

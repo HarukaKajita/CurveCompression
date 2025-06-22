@@ -592,6 +592,7 @@ namespace CurveCompression.Test
             
             TimeValuePair[] compressedData;
             var segments = new List<CurveSegment>();
+            float[] tangents = null;
             
             // CompressionMethodに応じて使用するアルゴリズムを選択
             switch (compressionParams.compressionMethod)
@@ -632,7 +633,7 @@ namespace CurveCompression.Test
                     compressedData = ResampleToFixedPoints(compressedData, numControlPoints);
                     // Bezierセグメントを作成
                     // タンジェントを事前計算
-                    float[] tangents = Core.TangentCalculator.CalculateSmoothTangents(compressedData);
+                    tangents = Core.TangentCalculator.CalculateSmoothTangents(compressedData);
                     for (int i = 0; i < compressedData.Length - 1; i++)
                     {
                         segments.Add(CurveSegment.CreateBezier(
@@ -664,7 +665,7 @@ namespace CurveCompression.Test
                     compressedData = BezierAlgorithm.ApproximateWithFixedPoints(originalData, numControlPoints);
                     // Bezierセグメントを作成
                     // タンジェントを事前計算
-                    float[] tangents = Core.TangentCalculator.CalculateSmoothTangents(compressedData);
+                    tangents = Core.TangentCalculator.CalculateSmoothTangents(compressedData);
                     for (int i = 0; i < compressedData.Length - 1; i++)
                     {
                         segments.Add(CurveSegment.CreateBezier(

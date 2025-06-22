@@ -80,6 +80,7 @@ namespace CurveCompression.Visualization
         {
             lineRenderer.material = new Material(Shader.Find("Sprites/Default"));
             lineRenderer.startColor = color;
+            lineRenderer.endColor = color;
             lineRenderer.startWidth = lineWidth;
             lineRenderer.endWidth = lineWidth;
             lineRenderer.useWorldSpace = true;

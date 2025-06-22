@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using CurveCompression.DataStructures;
+using CurveCompression.Core;
 
 namespace CurveCompression.Algorithms
 {
@@ -156,10 +157,13 @@ namespace CurveCompression.Algorithms
             float dx = lineEnd.time - lineStart.time;
             float dy = lineEnd.value - lineStart.value;
             
-            if (dx == 0 && dy == 0)
+            // 線分が点の場合
+            float lineLength = MathUtils.DistanceSquared(dx, dy);
+            if (lineLength < MathUtils.Epsilon)
                 return Vector2.Distance(new Vector2(point.time, point.value), new Vector2(lineStart.time, lineStart.value));
             
-            float t = ((point.time - lineStart.time) * dx + (point.value - lineStart.value) * dy) / (dx * dx + dy * dy);
+            // 投影パラメータを安全に計算
+            float t = ((point.time - lineStart.time) * dx + (point.value - lineStart.value) * dy) / lineLength;
             t = Mathf.Clamp01(t);
             
             Vector2 projection = new Vector2(lineStart.time + t * dx, lineStart.value + t * dy);

@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using CurveCompression.Core;
 
 namespace CurveCompression.DataStructures
 {
@@ -102,7 +103,7 @@ namespace CurveCompression.DataStructures
             if (time <= startTime) return startValue;
             if (time >= endTime) return endValue;
             
-            float t = (time - startTime) / (endTime - startTime);
+            float t = MathUtils.SafeLerpParameter(time, startTime, endTime);
             return Mathf.Lerp(startValue, endValue, t);
         }
         
@@ -115,7 +116,7 @@ namespace CurveCompression.DataStructures
             if (time >= endTime) return endValue;
             
             // 簡略化されたB-スプライン評価（実際には適切なB-スプライン補間を実装する必要があります）
-            float t = (time - startTime) / (endTime - startTime);
+            float t = MathUtils.SafeLerpParameter(time, startTime, endTime);
             
             if (bsplineControlPoints.Length == 2)
             {
@@ -157,7 +158,7 @@ namespace CurveCompression.DataStructures
             if (time <= startTime) return startValue;
             if (time >= endTime) return endValue;
             
-            float t = (time - startTime) / (endTime - startTime);
+            float t = MathUtils.SafeLerpParameter(time, startTime, endTime);
             float t2 = t * t;
             float t3 = t2 * t;
             

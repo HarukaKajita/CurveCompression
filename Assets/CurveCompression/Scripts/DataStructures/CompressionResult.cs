@@ -1,4 +1,5 @@
 using UnityEngine;
+using CurveCompression.Core;
 
 namespace CurveCompression.DataStructures
 {
@@ -76,7 +77,7 @@ namespace CurveCompression.DataStructures
             {
                 if (time >= data[i].time && time <= data[i + 1].time)
                 {
-                    float t = (time - data[i].time) / (data[i + 1].time - data[i].time);
+                    float t = MathUtils.SafeLerpParameter(time, data[i].time, data[i + 1].time);
                     return Mathf.Lerp(data[i].value, data[i + 1].value, t);
                 }
             }

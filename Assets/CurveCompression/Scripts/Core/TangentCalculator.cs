@@ -67,13 +67,13 @@ namespace CurveCompression.Core
             if (index == 0)
             {
                 // 最初の点：前方差分
-                return (points[1].value - points[0].value) / (points[1].time - points[0].time);
+                return MathUtils.SafeSlope(points[0].time, points[0].value, points[1].time, points[1].value);
             }
             else if (index == points.Length - 1)
             {
                 // 最後の点：後方差分
-                return (points[index].value - points[index - 1].value) / 
-                       (points[index].time - points[index - 1].time);
+                return MathUtils.SafeSlope(points[index - 1].time, points[index - 1].value, 
+                                         points[index].time, points[index].value);
             }
             else
             {
@@ -91,21 +91,21 @@ namespace CurveCompression.Core
             if (index == 0)
             {
                 // 最初の点：前方差分
-                return (points[1].value - points[0].value) / (points[1].time - points[0].time);
+                return MathUtils.SafeSlope(points[0].time, points[0].value, points[1].time, points[1].value);
             }
             else if (index == points.Length - 1)
             {
                 // 最後の点：後方差分
-                return (points[index].value - points[index - 1].value) / 
-                       (points[index].time - points[index - 1].time);
+                return MathUtils.SafeSlope(points[index - 1].time, points[index - 1].value, 
+                                         points[index].time, points[index].value);
             }
             else
             {
                 // 中間点：前後の傾きの加重平均
-                float prevSlope = (points[index].value - points[index - 1].value) / 
-                                 (points[index].time - points[index - 1].time);
-                float nextSlope = (points[index + 1].value - points[index].value) / 
-                                 (points[index + 1].time - points[index].time);
+                float prevSlope = MathUtils.SafeSlope(points[index - 1].time, points[index - 1].value,
+                                                    points[index].time, points[index].value);
+                float nextSlope = MathUtils.SafeSlope(points[index].time, points[index].value,
+                                                    points[index + 1].time, points[index + 1].value);
                 
                 // 時間間隔に基づく重み付け
                 float prevDt = points[index].time - points[index - 1].time;
@@ -113,8 +113,8 @@ namespace CurveCompression.Core
                 float totalDt = prevDt + nextDt;
                 
                 // 距離に反比例する重み（近い点により大きな影響）
-                float prevWeight = nextDt / totalDt;
-                float nextWeight = prevDt / totalDt;
+                float prevWeight = MathUtils.SafeDivide(nextDt, totalDt, 0.5f);
+                float nextWeight = MathUtils.SafeDivide(prevDt, totalDt, 0.5f);
                 
                 return prevSlope * prevWeight + nextSlope * nextWeight;
             }
@@ -132,8 +132,8 @@ namespace CurveCompression.Core
             }
             
             // Catmull-Rom: tangent = (P[i+1] - P[i-1]) / (t[i+1] - t[i-1])
-            return (points[index + 1].value - points[index - 1].value) / 
-                   (points[index + 1].time - points[index - 1].time);
+            return MathUtils.SafeSlope(points[index - 1].time, points[index - 1].value,
+                                     points[index + 1].time, points[index + 1].value);
         }
         
         /// <summary>
@@ -148,8 +148,8 @@ namespace CurveCompression.Core
             }
             
             // Cardinal: tangent = (1 - tension) * (P[i+1] - P[i-1]) / (t[i+1] - t[i-1])
-            float catmullRomTangent = (points[index + 1].value - points[index - 1].value) / 
-                                     (points[index + 1].time - points[index - 1].time);
+            float catmullRomTangent = MathUtils.SafeSlope(points[index - 1].time, points[index - 1].value,
+                                                        points[index + 1].time, points[index + 1].value);
             
             return (1f - tension) * catmullRomTangent;
         }

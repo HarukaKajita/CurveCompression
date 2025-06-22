@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using CurveCompression.DataStructures;
+using CurveCompression.Core;
 
 namespace CurveCompression.Algorithms
 {
@@ -11,10 +12,24 @@ namespace CurveCompression.Algorithms
     public static class BezierAlgorithm
     {
         /// <summary>
-        /// 適応的Bezier曲線近似
+        /// 適応的Bezier曲線近似（標準インターフェース）
+        /// </summary>
+        public static CompressedCurveData Compress(TimeValuePair[] points, CompressionParams parameters)
+        {
+            ValidationUtils.ValidatePoints(points, nameof(points));
+            ValidationUtils.ValidateCompressionParams(parameters);
+            
+            return Compress(points, parameters.tolerance);
+        }
+        
+        /// <summary>
+        /// 適応的Bezier曲線近似（シンプルインターフェース）
         /// </summary>
         public static CompressedCurveData Compress(TimeValuePair[] points, float tolerance)
         {
+            ValidationUtils.ValidatePoints(points, nameof(points));
+            ValidationUtils.ValidateTolerance(tolerance, nameof(tolerance));
+            
             if (points.Length <= 2)
             {
                 var linearSegment = CurveSegment.CreateLinear(

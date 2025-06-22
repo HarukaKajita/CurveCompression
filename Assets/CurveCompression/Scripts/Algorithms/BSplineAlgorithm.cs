@@ -11,24 +11,18 @@ namespace CurveCompression.Algorithms
     public static class BSplineAlgorithm
     {
         /// <summary>
-        /// 適応的B-スプライン近似（レガシー互換性のため維持）
+        /// 適応的B-スプライン近似（標準インターフェース）
         /// </summary>
-        public static TimeValuePair[] ApproximateWithBSpline(TimeValuePair[] points, float tolerance)
+        public static CompressedCurveData Compress(TimeValuePair[] points, CompressionParams parameters)
         {
             ValidationUtils.ValidatePoints(points, nameof(points));
-            ValidationUtils.ValidateTolerance(tolerance, nameof(tolerance));
+            ValidationUtils.ValidateCompressionParams(parameters);
             
-            if (points.Length <= 2) return points;
-            
-            // 新しい実装を使用してCompressedCurveDataを取得
-            var compressedData = Compress(points, tolerance);
-            
-            // TimeValuePair配列に変換
-            return compressedData.ToTimeValuePairs(points.Length);
+            return Compress(points, parameters.tolerance);
         }
         
         /// <summary>
-        /// 適応的B-スプライン近似（新しいデータ構造を使用）
+        /// 適応的B-スプライン近似（シンプルインターフェース）
         /// </summary>
         public static CompressedCurveData Compress(TimeValuePair[] points, float tolerance)
         {

@@ -14,22 +14,26 @@ namespace CurveCompression.Algorithms
     public static class RDPAlgorithm
     {
         /// <summary>
-        /// RDPアルゴリズムによる点列簡約
+        /// RDPアルゴリズムによる圧縮（標準インターフェース）
         /// </summary>
-        public static TimeValuePair[] Simplify(TimeValuePair[] points, float tolerance, 
-            float importanceThreshold = 1.0f, ImportanceWeights weights = null)
+        public static CompressedCurveData Compress(TimeValuePair[] points, CompressionParams parameters)
+        {
+            ValidationUtils.ValidatePoints(points, nameof(points));
+            ValidationUtils.ValidateCompressionParams(parameters);
+            
+            return CompressWithCurveEvaluation(points, parameters.tolerance, CurveType.Linear, 
+                parameters.importanceThreshold, parameters.importanceWeights);
+        }
+        
+        /// <summary>
+        /// RDPアルゴリズムによる圧縮（シンプルインターフェース）
+        /// </summary>
+        public static CompressedCurveData Compress(TimeValuePair[] points, float tolerance)
         {
             ValidationUtils.ValidatePoints(points, nameof(points));
             ValidationUtils.ValidateTolerance(tolerance, nameof(tolerance));
             
-            if (points.Length <= 2) return points;
-            
-            var result = new List<TimeValuePair>();
-            SimplifyRecursive(points, 0, points.Length - 1, tolerance, importanceThreshold, weights, result);
-            
-            // 結果をソートして返す
-            result.Sort();
-            return result.ToArray();
+            return CompressWithCurveEvaluation(points, tolerance, CurveType.Linear);
         }
         
         /// <summary>
@@ -51,7 +55,12 @@ namespace CurveCompression.Algorithms
             }
             
             // RDPで重要点を抽出
-            var keyPoints = Simplify(points, tolerance, importanceThreshold, weights);
+            var result = new List<TimeValuePair>();
+            SimplifyRecursive(points, 0, points.Length - 1, tolerance, importanceThreshold, weights, result);
+            
+            // 結果をソートして重要点を取得
+            result.Sort();
+            var keyPoints = result.ToArray();
             
             // 抽出した重要点を指定された曲線タイプで評価
             return ConvertToCurveData(keyPoints, curveType);

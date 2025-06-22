@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using CurveCompression.DataStructures;
+using CurveCompression.Core;
 
 namespace CurveCompression.Algorithms
 {
@@ -434,19 +435,7 @@ namespace CurveCompression.Algorithms
 
         private static float InterpolateValue(TimeValuePair[] data, float time)
         {
-            if (data.Length == 0) return 0;
-            if (data.Length == 1) return data[0].value;
-            
-            for (int i = 0; i < data.Length - 1; i++)
-            {
-                if (time >= data[i].time && time <= data[i + 1].time)
-                {
-                    float t = (time - data[i].time) / (data[i + 1].time - data[i].time);
-                    return Mathf.Lerp(data[i].value, data[i + 1].value, t);
-                }
-            }
-            
-            return time < data[0].time ? data[0].value : data[^1].value;
+            return InterpolationUtils.LinearInterpolate(data, time);
         }
     }
 }

@@ -380,7 +380,7 @@ namespace CurveCompression.Test
                     // 線形補間
                     float localT = (t * (points.Length - 1)) - sourceIndex;
                     float time = Mathf.Lerp(points[sourceIndex].time, points[sourceIndex + 1].time, localT);
-                    float value = Mathf.Lerp(points[sourceIndex].value, points[sourceIndex + 1].value, localT);
+                    float value = InterpolationUtils.LinearInterpolate(points, time);
                     result[i] = new TimeValuePair(time, value);
                 }
             }

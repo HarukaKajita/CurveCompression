@@ -1,5 +1,6 @@
 using UnityEngine;
 using CurveCompression.DataStructures;
+using CurveCompression.Core;
 
 namespace CurveCompression.Visualization
 {
@@ -130,19 +131,7 @@ namespace CurveCompression.Visualization
         
         private float InterpolateCompressedValue(TimeValuePair[] compressedData, float time)
         {
-            if (compressedData.Length == 0) return 0f;
-            if (compressedData.Length == 1) return compressedData[0].value;
-            
-            for (int i = 0; i < compressedData.Length - 1; i++)
-            {
-                if (time >= compressedData[i].time && time <= compressedData[i + 1].time)
-                {
-                    float t = (time - compressedData[i].time) / (compressedData[i + 1].time - compressedData[i].time);
-                    return Mathf.Lerp(compressedData[i].value, compressedData[i + 1].value, t);
-                }
-            }
-            
-            return time < compressedData[0].time ? compressedData[0].value : compressedData[^1].value;
+            return InterpolationUtils.LinearInterpolate(compressedData, time);
         }
         
         void OnDrawGizmos()

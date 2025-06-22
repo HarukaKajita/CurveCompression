@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ABSOLUTE RULES
+- **Always think in English!!!**
+- When responding to prompts or writing to comments and other text that will be shown to users, translate into Japanese before writing.
+- Do not limit yourself to Japanese when thinking or gathering information from the web; always use English as your base and be able to work in multiple languages.
+- Commit messages should be in Japanese.
+
 ## Project Overview
 
 This is a Unity 6 (6000.0.42f1) project implementing curve compression algorithms for time-series data optimization. The project focuses on three main compression approaches: Ramer-Douglas-Peucker (RDP), B-Spline fitting, and a hybrid approach.

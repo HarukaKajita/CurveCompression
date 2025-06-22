@@ -40,7 +40,7 @@ namespace CurveCompression.DataStructures
         [Range(0.1f, 10.0f)]
         [SerializeField] private float _importanceThreshold = 1.0f;
         
-        public CompressionMethod compressionMethod = CompressionMethod.Bezier_Direct; // 圧縮手法
+        public CompressionMethod compressionMethod = CompressionMethod.Bezier; // 圧縮手法
         public CompressionMode compressionMode = CompressionMode.ToleranceBased; // 圧縮モード
         
         public CompressionDataType dataType = CompressionDataType.Animation;

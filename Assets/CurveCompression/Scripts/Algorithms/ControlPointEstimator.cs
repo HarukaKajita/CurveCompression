@@ -4,6 +4,7 @@ using System.Linq;
 using UnityEngine;
 using CurveCompression.DataStructures;
 using CurveCompression.Core;
+using System.Diagnostics;
 
 namespace CurveCompression.Algorithms
 {
@@ -21,6 +22,7 @@ namespace CurveCompression.Algorithms
             public float score;
             public string method;
             public Dictionary<string, float> metrics;
+            public float estimationTime; // 推定処理時間（ミリ秒）
 
             public EstimationResult(int points, float score, string method)
             {
@@ -28,26 +30,27 @@ namespace CurveCompression.Algorithms
                 this.score = score;
                 this.method = method;
                 this.metrics = new Dictionary<string, float>();
+                this.estimationTime = 0f; // デフォルト値
             }
         }
 
         /// <summary>
         /// 全ての推定アルゴリズムを実行
         /// </summary>
-        public static Dictionary<string, EstimationResult> EstimateAll(TimeValuePair[] data, float tolerance, int minPoints = 2, int maxPoints = 50)
+        public static Dictionary<string, EstimationResult> EstimateAll(TimeValuePair[] data, float tolerance, int minPoints = 2, int maxPoints = 50, bool enableTimeMeasurement = false)
         {
             var results = new Dictionary<string, EstimationResult>();
 
             // 5つの推定アルゴリズム
-            results["Elbow"] = EstimateByElbowMethod(data, tolerance, minPoints, maxPoints);
-            results["Curvature"] = EstimateByCurvature(data, tolerance, minPoints, maxPoints);
-            results["Entropy"] = EstimateByInformationEntropy(data, tolerance, minPoints, maxPoints);
-            results["DouglasPeucker"] = EstimateByDouglasPeuckerAdaptive(data, tolerance, minPoints, maxPoints);
-            results["TotalVariation"] = EstimateByTotalVariation(data, tolerance, minPoints, maxPoints);
+            results["Elbow"] = EstimateWithTiming(() => EstimateByElbowMethod(data, tolerance, minPoints, maxPoints), enableTimeMeasurement);
+            results["Curvature"] = EstimateWithTiming(() => EstimateByCurvature(data, tolerance, minPoints, maxPoints), enableTimeMeasurement);
+            results["Entropy"] = EstimateWithTiming(() => EstimateByInformationEntropy(data, tolerance, minPoints, maxPoints), enableTimeMeasurement);
+            results["DouglasePeucker"] = EstimateWithTiming(() => EstimateByDouglasPeuckerAdaptive(data, tolerance, minPoints, maxPoints), enableTimeMeasurement);
+            results["TotalVariation"] = EstimateWithTiming(() => EstimateByTotalVariation(data, tolerance, minPoints, maxPoints), enableTimeMeasurement);
 
             // 2つの上限決定アルゴリズム
-            results["ErrorBound"] = DetermineByErrorBound(data, tolerance);
-            results["Statistical"] = DetermineByStatistical(data, tolerance);
+            results["ErrorBound"] = EstimateWithTiming(() => DetermineByErrorBound(data, tolerance), enableTimeMeasurement);
+            results["Statistical"] = EstimateWithTiming(() => DetermineByStatistical(data, tolerance), enableTimeMeasurement);
 
             return results;
         }
@@ -55,19 +58,37 @@ namespace CurveCompression.Algorithms
         /// <summary>
         /// 指定された推定方法で単一の推定を実行
         /// </summary>
-        public static EstimationResult EstimateByMethod(TimeValuePair[] data, float tolerance, string methodName, int minPoints = 2, int maxPoints = 50)
+        public static EstimationResult EstimateByMethod(TimeValuePair[] data, float tolerance, string methodName, int minPoints = 2, int maxPoints = 50, bool enableTimeMeasurement = false)
         {
             return methodName switch
             {
-                "Elbow" => EstimateByElbowMethod(data, tolerance, minPoints, maxPoints),
-                "Curvature" => EstimateByCurvature(data, tolerance, minPoints, maxPoints),
-                "Entropy" => EstimateByInformationEntropy(data, tolerance, minPoints, maxPoints),
-                "DouglasePeucker" => EstimateByDouglasPeuckerAdaptive(data, tolerance, minPoints, maxPoints),
-                "TotalVariation" => EstimateByTotalVariation(data, tolerance, minPoints, maxPoints),
-                "ErrorBound" => DetermineByErrorBound(data, tolerance),
-                "Statistical" => DetermineByStatistical(data, tolerance),
+                "Elbow" => EstimateWithTiming(() => EstimateByElbowMethod(data, tolerance, minPoints, maxPoints), enableTimeMeasurement),
+                "Curvature" => EstimateWithTiming(() => EstimateByCurvature(data, tolerance, minPoints, maxPoints), enableTimeMeasurement),
+                "Entropy" => EstimateWithTiming(() => EstimateByInformationEntropy(data, tolerance, minPoints, maxPoints), enableTimeMeasurement),
+                "DouglasePeucker" => EstimateWithTiming(() => EstimateByDouglasPeuckerAdaptive(data, tolerance, minPoints, maxPoints), enableTimeMeasurement),
+                "TotalVariation" => EstimateWithTiming(() => EstimateByTotalVariation(data, tolerance, minPoints, maxPoints), enableTimeMeasurement),
+                "ErrorBound" => EstimateWithTiming(() => DetermineByErrorBound(data, tolerance), enableTimeMeasurement),
+                "Statistical" => EstimateWithTiming(() => DetermineByStatistical(data, tolerance), enableTimeMeasurement),
                 _ => throw new ArgumentException($"未サポートの推定方法: {methodName}")
             };
+        }
+        
+        /// <summary>
+        /// 時間計測付きで推定メソッドを実行
+        /// </summary>
+        private static EstimationResult EstimateWithTiming(Func<EstimationResult> estimationMethod, bool enableTimeMeasurement)
+        {
+            if (!enableTimeMeasurement)
+            {
+                return estimationMethod();
+            }
+            
+            var stopwatch = Stopwatch.StartNew();
+            var result = estimationMethod();
+            stopwatch.Stop();
+            
+            result.estimationTime = (float)stopwatch.Elapsed.TotalMilliseconds;
+            return result;
         }
 
         /// <summary>

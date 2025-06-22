@@ -31,6 +31,7 @@ namespace CurveCompression.Test
         
         [Header("コントロールポイント推定")]
         [SerializeField] private bool showEstimationResults = true;
+        [SerializeField] private bool enableEstimationTimeMeasurement = false;
         [SerializeField] private List<EstimationDisplay> estimationResults = new List<EstimationDisplay>();
         
         [Header("実行時更新設定")]
@@ -68,6 +69,7 @@ namespace CurveCompression.Test
             public int optimalPoints;
             public float score;
             public string metrics;
+            public float estimationTime;
         }
         
         void Start()
@@ -235,7 +237,8 @@ namespace CurveCompression.Test
                 currentTestData, 
                 compressionParams.tolerance,
                 2,
-                Mathf.Min(currentTestData.Length / 2, 100)
+                Mathf.Min(currentTestData.Length / 2, 100),
+                enableEstimationTimeMeasurement
             );
             
             // 表示用リストを更新
@@ -247,7 +250,8 @@ namespace CurveCompression.Test
                     methodName = kvp.Key,
                     optimalPoints = kvp.Value.optimalPoints,
                     score = kvp.Value.score,
-                    metrics = FormatMetrics(kvp.Value.metrics)
+                    metrics = FormatMetrics(kvp.Value.metrics),
+                    estimationTime = kvp.Value.estimationTime
                 };
                 estimationResults.Add(display);
             }
@@ -262,7 +266,14 @@ namespace CurveCompression.Test
             Debug.Log("コントロールポイント推定完了:");
             foreach (var result in estimationResults)
             {
-                Debug.Log($"- {result.methodName}: {result.optimalPoints}ポイント (スコア: {result.score:F3})");
+                if (enableEstimationTimeMeasurement && result.estimationTime > 0)
+                {
+                    Debug.Log($"- {result.methodName}: {result.optimalPoints}ポイント (スコア: {result.score:F3}, 時間: {result.estimationTime:F2} ms)");
+                }
+                else
+                {
+                    Debug.Log($"- {result.methodName}: {result.optimalPoints}ポイント (スコア: {result.score:F3})");
+                }
             }
         }
         
@@ -316,17 +327,18 @@ namespace CurveCompression.Test
             // アルゴリズムに応じて固定コントロールポイント圧縮を実行
             switch (method)
             {
-                case CompressionMethod.BSpline_Direct:
+                case CompressionMethod.BSpline:
                     controlPoints = BSplineAlgorithm.ApproximateWithFixedPoints(originalData, numControlPoints);
                     curveType = CurveType.BSpline;
                     break;
                         
-                case CompressionMethod.Bezier_Direct:
+                case CompressionMethod.Bezier:
                     controlPoints = BezierAlgorithm.ApproximateWithFixedPoints(originalData, numControlPoints);
                     curveType = CurveType.Bezier;
                     break;
                         
-                default: // 線形補間（RDPベースは固定数に適さないため線形にフォールバック）
+                case CompressionMethod.RDP:
+                default: // RDPは固定数に適さないため線形補間で近似
                     controlPoints = SelectOptimalLinearPoints(originalData, numControlPoints);
                     curveType = CurveType.Linear;
                     break;
@@ -483,7 +495,10 @@ namespace CurveCompression.Test
                 var estimation = ControlPointEstimator.EstimateByMethod(
                     currentTestData,
                     compressionParams.tolerance,
-                    methodName);
+                    methodName,
+                    2,
+                    Mathf.Min(currentTestData.Length / 2, 100),
+                    enableEstimationTimeMeasurement);
                 
                 return estimation.optimalPoints;
             }
@@ -597,6 +612,24 @@ namespace CurveCompression.Test
             if (currentTestData != null)
             {
                 RunControlPointEstimation();
+            }
+            else
+            {
+                Debug.LogWarning("テストデータがありません。先にテストデータを生成してください。");
+            }
+        }
+        
+        /// <summary>
+        /// エディターから実行する際に時間計測を有効化して推定を実行
+        /// </summary>
+        public void RunControlPointEstimationWithTiming()
+        {
+            if (currentTestData != null)
+            {
+                var originalValue = enableEstimationTimeMeasurement;
+                enableEstimationTimeMeasurement = true;
+                RunControlPointEstimation();
+                enableEstimationTimeMeasurement = originalValue;
             }
             else
             {

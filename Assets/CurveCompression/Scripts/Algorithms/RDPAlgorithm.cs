@@ -14,33 +14,34 @@ namespace CurveCompression.Algorithms
     public static class RDPAlgorithm
     {
         /// <summary>
-        /// RDPアルゴリズムによる圧縮（標準インターフェース）
+        /// RDPアルゴリズムによる線形圧縮（標準インターフェース）
         /// </summary>
         public static CompressedCurveData Compress(TimeValuePair[] points, CompressionParams parameters)
         {
             ValidationUtils.ValidatePoints(points, nameof(points));
             ValidationUtils.ValidateCompressionParams(parameters);
             
-            return CompressWithCurveEvaluation(points, parameters.tolerance, CurveType.Linear, 
-                parameters.importanceThreshold, parameters.importanceWeights);
+            // データタイプに基づく重み設定の自動調整
+            var weights = GetOptimalWeights(parameters.dataType, parameters.importanceWeights);
+            
+            return Compress(points, parameters.tolerance, parameters.importanceThreshold, weights);
         }
         
         /// <summary>
-        /// RDPアルゴリズムによる圧縮（シンプルインターフェース）
+        /// RDPアルゴリズムによる線形圧縮（シンプルインターフェース）
         /// </summary>
         public static CompressedCurveData Compress(TimeValuePair[] points, float tolerance)
         {
             ValidationUtils.ValidatePoints(points, nameof(points));
             ValidationUtils.ValidateTolerance(tolerance, nameof(tolerance));
             
-            return CompressWithCurveEvaluation(points, tolerance, CurveType.Linear);
+            return Compress(points, tolerance, 1.0f, ImportanceWeights.Default);
         }
         
         /// <summary>
-        /// RDPアルゴリズムによる点列簡約（曲線評価付き）
+        /// RDPアルゴリズムによる線形圧縮（詳細インターフェース）
         /// </summary>
-        public static CompressedCurveData CompressWithCurveEvaluation(TimeValuePair[] points, float tolerance, 
-            CurveType curveType, float importanceThreshold = 1.0f, ImportanceWeights weights = null)
+        public static CompressedCurveData Compress(TimeValuePair[] points, float tolerance, float importanceThreshold, ImportanceWeights weights)
         {
             ValidationUtils.ValidatePoints(points, nameof(points));
             ValidationUtils.ValidateTolerance(tolerance, nameof(tolerance));
@@ -62,56 +63,30 @@ namespace CurveCompression.Algorithms
             result.Sort();
             var keyPoints = result.ToArray();
             
-            // 抽出した重要点を指定された曲線タイプで評価
-            return ConvertToCurveData(keyPoints, curveType);
+            // 線形セグメントとして変換
+            return ConvertToLinearSegments(keyPoints);
         }
         
-        private static CompressedCurveData ConvertToCurveData(TimeValuePair[] keyPoints, CurveType curveType)
+        /// <summary>
+        /// 線形セグメントに変換
+        /// </summary>
+        private static CompressedCurveData ConvertToLinearSegments(TimeValuePair[] keyPoints)
         {
             if (keyPoints.Length <= 1)
                 return new CompressedCurveData(new CurveSegment[0]);
                 
             var segments = new List<CurveSegment>();
             
-            // Bezier用のタンジェントを事前計算
-            float[] tangents = null;
-            if (curveType == CurveType.Bezier)
-            {
-                tangents = Core.TangentCalculator.CalculateSmoothTangents(keyPoints);
-            }
-            
+            // 線形セグメントのみを作成
             for (int i = 0; i < keyPoints.Length - 1; i++)
             {
                 var startPoint = keyPoints[i];
                 var endPoint = keyPoints[i + 1];
                 
-                switch (curveType)
-                {
-                    case CurveType.Linear:
-                        segments.Add(CurveSegment.CreateLinear(
-                            startPoint.time, startPoint.value,
-                            endPoint.time, endPoint.value
-                        ));
-                        break;
-                        
-                    case CurveType.BSpline:
-                        // RDP結果に対してはシンプルなBSplineを作成
-                        var controlPoints = new Vector2[] {
-                            new Vector2(startPoint.time, startPoint.value),
-                            new Vector2(endPoint.time, endPoint.value)
-                        };
-                        segments.Add(CurveSegment.CreateBSpline(controlPoints));
-                        break;
-                        
-                    case CurveType.Bezier:
-                        segments.Add(CurveSegment.CreateBezier(
-                            startPoint.time, startPoint.value,
-                            endPoint.time, endPoint.value,
-                            tangents[i],      // 始点のタンジェント
-                            tangents[i + 1]   // 終点のタンジェント
-                        ));
-                        break;
-                }
+                segments.Add(CurveSegment.CreateLinear(
+                    startPoint.time, startPoint.value,
+                    endPoint.time, endPoint.value
+                ));
             }
             
             return new CompressedCurveData(segments.ToArray());
@@ -322,6 +297,20 @@ namespace CurveCompression.Algorithms
             }
             
             return variance / points.Length;
+        }
+        
+        /// <summary>
+        /// データタイプに基づく最適な重み設定を取得
+        /// </summary>
+        private static ImportanceWeights GetOptimalWeights(CompressionDataType dataType, ImportanceWeights userWeights)
+        {
+            return dataType switch
+            {
+                CompressionDataType.Animation => ImportanceWeights.ForAnimation,
+                CompressionDataType.SensorData => ImportanceWeights.ForSensorData,
+                CompressionDataType.FinancialData => ImportanceWeights.ForFinancialData,
+                _ => userWeights ?? ImportanceWeights.Default
+            };
         }
     }
 }

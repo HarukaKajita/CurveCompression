@@ -25,8 +25,8 @@ namespace CurveCompression.Core
                 stopwatch = Stopwatch.StartNew();
             }
             
-            // 統一的な圧縮手法を使用
-            CompressedCurveData compressedCurve = HybridCompressor.Compress(originalData, parameters);
+            // 圧縮手法に応じて処理を分岐
+            CompressedCurveData compressedCurve = CompressInternal(originalData, parameters);
             
             // 時間計測の終了
             float compressionTime = 0f;
@@ -51,5 +51,30 @@ namespace CurveCompression.Core
             return Compress(originalData, parameters);
         }
         
+        /// <summary>
+        /// 内部圧縮処理
+        /// </summary>
+        private static CompressedCurveData CompressInternal(TimeValuePair[] points, CompressionParams parameters)
+        {
+            if (points.Length <= 2)
+            {
+                var linearSegment = CurveSegment.CreateLinear(
+                    points[0].time, points[0].value,
+                    points[^1].time, points[^1].value
+                );
+                return new CompressedCurveData(new[] { linearSegment });
+            }
+            
+            return parameters.compressionMethod switch
+            {
+                CompressionMethod.RDP => RDPAlgorithm.Compress(points, parameters),
+                    
+                CompressionMethod.BSpline => BSplineAlgorithm.Compress(points, parameters.tolerance),
+                
+                CompressionMethod.Bezier => BezierAlgorithm.Compress(points, parameters.tolerance),
+                
+                _ => BezierAlgorithm.Compress(points, parameters.tolerance) // デフォルト
+            };
+        }
     }
 }

@@ -25,7 +25,6 @@ namespace CurveCompression.Test
         [SerializeField] private bool generateTestData = true;
         
         [Header("圧縮オプション")]
-        [SerializeField] private bool useAdvancedCompression = true;
         [SerializeField] private bool compareAllMethods = false;
         [SerializeField] private bool useFixedControlPoints = false;
         [SerializeField] private int fixedControlPointCount = 10;

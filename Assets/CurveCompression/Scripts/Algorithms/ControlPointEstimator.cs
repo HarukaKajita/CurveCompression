@@ -192,8 +192,8 @@ namespace CurveCompression.Algorithms
             for (int i = 0; i < steps; i++)
             {
                 float t = minTol * Mathf.Pow(maxTol / minTol, (float)i / (steps - 1));
-                var simplified = RDPAlgorithm.Simplify(data, t);
-                tolerancePoints.Add((t, simplified.Length));
+                var compressed = RDPAlgorithm.Compress(data, t);
+                tolerancePoints.Add((t, compressed.segments.Length));
             }
 
             // 目標許容誤差でのポイント数を補間

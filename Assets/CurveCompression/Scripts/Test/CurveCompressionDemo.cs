@@ -146,15 +146,10 @@ namespace CurveCompression.Test
                 result = CompressWithFixedControlPoints(currentTestData, fixedControlPointCount);
                 Debug.Log($"固定コントロールポイント圧縮（{fixedControlPointCount}ポイント）を使用");
             }
-            else if (useAdvancedCompression)
-            {
-                result = Core.CurveCompressor.CompressDataAdvanced(currentTestData, compressionParams);
-                Debug.Log($"高度な圧縮（{compressionParams.compressionMethod}）を使用");
-            }
             else
             {
-                result = Core.CurveCompressor.CompressData(currentTestData, compressionParams);
-                Debug.Log("従来の圧縮（線形補間ベース）を使用");
+                result = Core.CurveCompressor.Compress(currentTestData, compressionParams);
+                Debug.Log($"標準圧縮（{compressionParams.compressionMethod}）を使用");
             }
             
             currentResult = result;
@@ -190,7 +185,7 @@ namespace CurveCompression.Test
             foreach (CompressionMethod method in methods)
             {
                 compressionParams.compressionMethod = method;
-                var result = Core.CurveCompressor.CompressDataAdvanced(testData, compressionParams);
+                var result = Core.CurveCompressor.Compress(testData, compressionParams);
                 
                 if (result != null)
                 {
@@ -283,9 +278,8 @@ namespace CurveCompression.Test
                 case CompressionMethod.RDP_BSpline:
                 case CompressionMethod.RDP_Bezier:
                     // RDPベースの手法
-                    var weights = Core.HybridCompressor.GetOptimalWeights(compressionParams.dataType, compressionParams.importanceWeights);
-                    compressedData = RDPAlgorithm.Simplify(originalData, compressionParams.tolerance, 
-                        compressionParams.importanceThreshold, weights);
+                    var rdpResult = RDPAlgorithm.Compress(originalData, compressionParams);
+                    compressedData = rdpResult.ToTimeValuePairs(originalData.Length);
                     compressedData = ResampleToFixedPoints(compressedData, numControlPoints);
                     break;
                     

@@ -10,41 +10,26 @@ namespace CurveCompression.Core
     public static class CurveCompressor
     {
         /// <summary>
-        /// データを圧縮（従来の線形補間ベース）
+        /// データを圧縮（標準インターフェース）
         /// </summary>
-        public static CompressionResult CompressData(TimeValuePair[] originalData, CompressionParams parameters)
+        public static CompressionResult Compress(TimeValuePair[] originalData, CompressionParams parameters)
         {
-            if (originalData == null || originalData.Length == 0)
-            {
-                Debug.LogWarning("圧縮対象のデータが空です");
-                return null;
-            }
+            ValidationUtils.ValidatePoints(originalData, nameof(originalData));
+            ValidationUtils.ValidateCompressionParams(parameters);
             
-            TimeValuePair[] compressedData;
+            // 統一的な圧縮手法を使用
+            CompressedCurveData compressedCurve = HybridCompressor.Compress(originalData, parameters);
             
-            // 従来の圧縮手法（RDPベース）
-            var weights = HybridCompressor.GetOptimalWeights(parameters.dataType, parameters.importanceWeights);
-            compressedData = RDPAlgorithm.Simplify(originalData, parameters.tolerance, 
-                parameters.importanceThreshold, weights);
-            
-            return new CompressionResult(originalData, compressedData);
+            return new CompressionResult(originalData, compressedCurve);
         }
         
         /// <summary>
-        /// データを圧縮（新しいデータ構造を使用）
+        /// データを圧縮（シンプルインターフェース）
         /// </summary>
-        public static CompressionResult CompressDataAdvanced(TimeValuePair[] originalData, CompressionParams parameters)
+        public static CompressionResult Compress(TimeValuePair[] originalData, float tolerance)
         {
-            if (originalData == null || originalData.Length == 0)
-            {
-                Debug.LogWarning("圧縮対象のデータが空です");
-                return null;
-            }
-            
-            // 新しい統一的な圧縮手法を使用
-            CompressedCurveData compressedCurve = HybridCompressor.CompressAdvanced(originalData, parameters);
-            
-            return new CompressionResult(originalData, compressedCurve);
+            var parameters = new CompressionParams { tolerance = tolerance };
+            return Compress(originalData, parameters);
         }
         
         /// <summary>

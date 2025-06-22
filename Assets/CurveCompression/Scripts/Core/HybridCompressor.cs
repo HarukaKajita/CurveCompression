@@ -15,36 +15,15 @@ namespace CurveCompression.Core
     /// </summary>
     public static class HybridCompressor
     {
-        /// <summary>
-        /// ハイブリッド圧縮を実行（従来互換性のため残存）
-        /// </summary>
-        public static TimeValuePair[] Compress(TimeValuePair[] points, CompressionParams parameters)
-        {
-            if (points.Length <= 2) return points;
-            
-            // データタイプに基づく重み設定の自動調整
-            var weights = GetOptimalWeights(parameters.dataType, parameters.importanceWeights);
-            
-            // 1. RDPで重要なポイントを抽出
-            var rdpResult = RDPAlgorithm.Simplify(points, parameters.tolerance, 
-                parameters.importanceThreshold, weights);
-            
-            // 2. B-スプラインで滑らかな近似
-            var splineResult = BSplineAlgorithm.ApproximateWithBSpline(points, 
-                parameters.tolerance);
-            
-            // 3. 品質に基づく選択（固定ロジック）
-            float rdpScore = EvaluateQuality(points, rdpResult);
-            float splineScore = EvaluateQuality(points, splineResult);
-            
-            return rdpScore <= splineScore ? rdpResult : splineResult;
-        }
         
         /// <summary>
-        /// 指定された圧縮手法で圧縮を実行
+        /// 指定された圧縮手法で圧縮を実行（標準インターフェース）
         /// </summary>
-        public static CompressedCurveData CompressAdvanced(TimeValuePair[] points, CompressionParams parameters)
+        public static CompressedCurveData Compress(TimeValuePair[] points, CompressionParams parameters)
         {
+            ValidationUtils.ValidatePoints(points, nameof(points));
+            ValidationUtils.ValidateCompressionParams(parameters);
+            
             if (points.Length <= 2)
             {
                 var linearSegment = CurveSegment.CreateLinear(
@@ -74,6 +53,15 @@ namespace CurveCompression.Core
                 
                 _ => BezierAlgorithm.Compress(points, parameters.tolerance) // デフォルト
             };
+        }
+        
+        /// <summary>
+        /// 指定された圧縮手法で圧縮を実行（シンプルインターフェース）
+        /// </summary>
+        public static CompressedCurveData Compress(TimeValuePair[] points, float tolerance)
+        {
+            var parameters = new CompressionParams { tolerance = tolerance };
+            return Compress(points, parameters);
         }
         
         public static ImportanceWeights GetOptimalWeights(CompressionDataType dataType, ImportanceWeights userWeights)

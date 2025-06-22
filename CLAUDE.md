@@ -237,3 +237,9 @@ var fixedResult = BezierAlgorithm.CompressWithFixedControlPoints(data, optimalPo
 - 変更を実装する。
 - 既存のコードスタイル、アーキテクチャ、ドキュメントとの一貫性を確保する。
 - 日本語で説明的なメッセージと共に変更をgit addとcommitする。
+
+## Coding Guidelines
+- 曖昧性のない明確な変数名と関数名を使用する。
+- 説明的なコメントをコードの意図とロジックに追加する。
+- コーディング規則はC#の一般的なベストプラクティスに従う。
+- コードの可読性と保守性を優先する。

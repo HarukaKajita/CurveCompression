@@ -38,10 +38,20 @@ namespace CurveCompression.Test
         [SerializeField] private float updateCheckInterval = 0.5f;
         
         [Header("AnimationClip保存設定")]
-        [SerializeField] private bool saveAsAnimationClip = true;
+        [SerializeField] private bool saveAsAnimationClip = false;
         [SerializeField] private string animationClipSavePath = "Assets/CurveCompression/GeneratedClips/";
         [SerializeField] private string animationClipNamePrefix = "CurveCompression_";
         [SerializeField] private string targetPropertyPath = "transform.position.y";
+        
+        [Header("Gizmo表示設定")]
+        [SerializeField] private bool showGizmos = true;
+        [SerializeField] private Color originalDataGizmoColor = Color.blue;
+        [SerializeField] private Color compressedDataGizmoColor = Color.red;
+        [SerializeField] private Color controlPointGizmoColor = Color.green;
+        [SerializeField] private float controlPointGizmoSize = 0.1f;
+        [SerializeField] private float gizmoTimeScale = 1.0f;
+        [SerializeField] private float gizmoCurveHeight = 2.0f;
+        [SerializeField] private float gizmoYOffset = 0f;
         
         // 内部状態
         private CurveVisualizer visualizer;
@@ -62,13 +72,16 @@ namespace CurveCompression.Test
         
         void Start()
         {
-            // ビジュアライザーの初期化
-            visualizer = GetComponent<CurveVisualizer>();
-            if (visualizer == null)
+            // ビジュアライザーの初期化（Playモードのみ）
+            if (Application.isPlaying)
             {
-                visualizer = gameObject.AddComponent<CurveVisualizer>();
+                visualizer = GetComponent<CurveVisualizer>();
+                if (visualizer == null)
+                {
+                    visualizer = gameObject.AddComponent<CurveVisualizer>();
+                }
+                visualizer.Initialize();
             }
-            visualizer.Initialize();
             
             if (generateTestData)
             {
@@ -168,8 +181,11 @@ namespace CurveCompression.Test
             {
                 DisplayResults(result);
                 
-                // 可視化
-                visualizer.VisualizeData(currentTestData, result);
+                // 可視化（Playモードのみ）
+                if (Application.isPlaying && visualizer != null)
+                {
+                    visualizer.VisualizeData(currentTestData, result);
+                }
                 
                 // AnimationClip保存
                 if (saveAsAnimationClip)
@@ -544,39 +560,141 @@ namespace CurveCompression.Test
         [ContextMenu("Save Current Data as AnimationClips")]
         public void SaveCurrentDataAsAnimationClips()
         {
-            if (Application.isPlaying && currentTestData != null && currentResult != null)
+            if (currentTestData != null && currentResult != null)
             {
                 SaveAsAnimationClips(currentTestData, currentResult);
+            }
+            else
+            {
+                Debug.LogWarning("データまたは圧縮結果がありません。先にテストデータの生成と圧縮を実行してください。");
             }
         }
         
         [ContextMenu("Regenerate Test Data")]
         public void RegenerateTestData()
         {
-            if (Application.isPlaying)
-            {
-                currentTestData = GenerateTestData();
-                TestCompression();
-            }
+            currentTestData = GenerateTestData();
+            TestCompression();
+            Debug.Log($"テストデータを生成しました: {currentTestData.Length}ポイント");
         }
         
         [ContextMenu("Re-run Compression")]
         public void RerunCompression()
         {
-            if (Application.isPlaying && currentTestData != null)
+            if (currentTestData != null)
             {
                 TestCompression();
+            }
+            else
+            {
+                Debug.LogWarning("テストデータがありません。先にテストデータを生成してください。");
             }
         }
         
         [ContextMenu("Run Control Point Estimation")]
         public void RunControlPointEstimationManual()
         {
-            if (Application.isPlaying && currentTestData != null)
+            if (currentTestData != null)
             {
                 RunControlPointEstimation();
             }
+            else
+            {
+                Debug.LogWarning("テストデータがありません。先にテストデータを生成してください。");
+            }
         }
 #endif
+        
+        /// <summary>
+        /// Gizmoによる可視化
+        /// </summary>
+        void OnDrawGizmos()
+        {
+            if (!showGizmos) return;
+            if (currentTestData == null || currentTestData.Length == 0) return;
+            
+            Vector3 basePosition = transform.position;
+            
+            // 元データの描画
+            if (currentTestData != null && currentTestData.Length > 1)
+            {
+                Gizmos.color = originalDataGizmoColor;
+                for (int i = 0; i < currentTestData.Length - 1; i++)
+                {
+                    Vector3 startPos = basePosition + new Vector3(
+                        currentTestData[i].time * gizmoTimeScale,
+                        currentTestData[i].value * gizmoCurveHeight + gizmoYOffset,
+                        0
+                    );
+                    Vector3 endPos = basePosition + new Vector3(
+                        currentTestData[i + 1].time * gizmoTimeScale,
+                        currentTestData[i + 1].value * gizmoCurveHeight + gizmoYOffset,
+                        0
+                    );
+                    Gizmos.DrawLine(startPos, endPos);
+                }
+            }
+            
+            // 圧縮データの描画
+            if (currentResult != null && currentResult.compressedCurve != null)
+            {
+                Gizmos.color = compressedDataGizmoColor;
+                DrawCompressedCurveGizmos(currentResult.compressedCurve, basePosition);
+                
+                // コントロールポイントの描画
+                if (currentResult.compressedData != null)
+                {
+                    Gizmos.color = controlPointGizmoColor;
+                    foreach (var point in currentResult.compressedData)
+                    {
+                        Vector3 pos = basePosition + new Vector3(
+                            point.time * gizmoTimeScale,
+                            point.value * gizmoCurveHeight + gizmoYOffset,
+                            0
+                        );
+                        Gizmos.DrawSphere(pos, controlPointGizmoSize);
+                    }
+                }
+            }
+        }
+        
+        /// <summary>
+        /// 圧縮カーブのGizmo描画
+        /// </summary>
+        private void DrawCompressedCurveGizmos(CompressedCurveData curveData, Vector3 basePosition)
+        {
+            const int samplesPerSegment = 20;
+            
+            foreach (var segment in curveData.segments)
+            {
+                float startTime = segment.startTime;
+                float endTime = segment.endTime;
+                
+                for (int i = 0; i < samplesPerSegment - 1; i++)
+                {
+                    float t1 = (float)i / (samplesPerSegment - 1);
+                    float t2 = (float)(i + 1) / (samplesPerSegment - 1);
+                    
+                    float time1 = Mathf.Lerp(startTime, endTime, t1);
+                    float time2 = Mathf.Lerp(startTime, endTime, t2);
+                    
+                    float value1 = segment.Evaluate(time1);
+                    float value2 = segment.Evaluate(time2);
+                    
+                    Vector3 pos1 = basePosition + new Vector3(
+                        time1 * gizmoTimeScale,
+                        value1 * gizmoCurveHeight + gizmoYOffset,
+                        0
+                    );
+                    Vector3 pos2 = basePosition + new Vector3(
+                        time2 * gizmoTimeScale,
+                        value2 * gizmoCurveHeight + gizmoYOffset,
+                        0
+                    );
+                    
+                    Gizmos.DrawLine(pos1, pos2);
+                }
+            }
+        }
     }
 }
